@@ -6,6 +6,16 @@ import tkinter as tk
 import pyxdf as xdf
 import numpy as np
 import multiprocessing as mp
+import usb1
+
+# Those are the Vendor ID and the Product ID of the hardware:
+# To find those values, go to:
+# 'Device Manager' >>> 'Universal Serial Bus Controllers' >>> Select your device (Notice that there might be
+# several devices with the same name - Make sure you choose the right one) and double click >>> 'Details' Tab >>>
+# >>> From roll menu choose 'Hardware IDs' >>> The first line should be as the template:
+# USB\VID_<VENDOR_ID>&PID_<PRODUCT_ID>&REV_***
+VENDOR_ID = '0EEF'
+PRODUCT_ID = 'FCFD'
 
 
 def change(link):
@@ -100,6 +110,25 @@ def plot_data(filename : str) -> None:
             raise RuntimeError('Unknown stream format')
 
     plt.show()
+
+
+    ################################# USB CONNECTIONS SECTION ################################
+
+def foo():
+    with usb1.USBContext() as context:
+        handle = context.openByVendorIDAndProductID(
+            VENDOR_ID,
+            PRODUCT_ID,
+            skip_on_error=True,
+        )
+        if handle is None:
+        # Device not present, or user is not allowed to access device.
+        with handle.claimInterface(INTERFACE):
+    # Do stuff with endpoints on claimed interface.
+
+
+
+
 
 
 if __name__ == "__main__":
