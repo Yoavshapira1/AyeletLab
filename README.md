@@ -15,3 +15,9 @@ https://labstreaminglayer.readthedocs.io/dev/app_dev.html
 
 #LSL in GitHub:
 https://github.com/sccn/labstreaminglayer
+
+#libusb docs:
+https://libusb.sourceforge.io/api-1.0/
+
+#PyUSB docs on GitHub:
+https://github.com/walac/pyusb/blob/master/docs/tutorial.rst

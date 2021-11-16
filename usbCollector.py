@@ -1,5 +1,8 @@
+import sys
+
 import usb.core
 import usb.util
+import numpy as np
 
 # Those are the Vendor ID and the Product ID of the hardware:
 # To find those values, go to:
@@ -22,6 +25,7 @@ def PyUSB_func():
     # was it found?
     if dev is None:
         raise ValueError('Device not found')
+
 
     # set the active configuration. With no arguments, the first
     # configuration will be the active one
