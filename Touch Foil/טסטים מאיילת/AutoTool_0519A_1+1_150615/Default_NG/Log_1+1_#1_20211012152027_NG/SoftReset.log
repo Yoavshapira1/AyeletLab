@@ -1,0 +1,22 @@
+DEVICE: search report id \\?\hid#intc816&col01#3&36a7043c&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE: search report id \\?\hid#intc816&col02#3&36a7043c&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE: search report id \\?\hid#dell08ca&col01#5&2bae4269&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE: search report id \\?\hid#dell08ca&col02#5&2bae4269&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE: search report id \\?\hid#dell08ca&col03#5&2bae4269&0&0002#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE: search report id \\?\hid#dell08ca&col04#5&2bae4269&0&0003#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE: search report id \\?\hid#converteddevice&col02#5&379854aa&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE: search report id \\?\hid#converteddevice&col03#5&379854aa&0&0002#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE: search report id \\?\hid#converteddevice&col01#5&379854aa&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}\kbd
+DEVICE: search report id \\?\hid#vid_0457&pid_0817&col01#6&361e9af2&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE: search report id \\?\hid#vid_0457&pid_0817&col02#6&361e9af2&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}
+find device's path is \\?\hid#vid_0457&pid_0817&col02#6&361e9af2&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}
+W: 09 05 85 0d 51 09 
+R: 0a 07 00 fa ef be 00 00 
+W: 09 05 85 5c 21 01 
+R: 0a 07 00 fa ef be 00 00 
+W: 09 03 82 ca 
+Set verbose level = 1
+Reset SiS TP
+\SoftReset.exe Version : 1.3.19.424
+start reset
+reset OK
