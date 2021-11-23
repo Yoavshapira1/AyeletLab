@@ -70,6 +70,17 @@ def demo_data_line(id : int) -> None:
         outlet.push_sample(mysample)
         time.sleep(0.01)
 
+def create_worker(id, data):
+    print("worker ID: ", id)
+    info = StreamInfo(name='Move{}'.format(id))
+    print("worker {} stream info created".format(id))
+    outlet = StreamOutlet(info)
+    print("worker {} outlet info created".format(id))
+    mysample = [data]
+    while True:
+        outlet.push_sample(mysample)
+        time.sleep(0.01)
+
 def connect_demo_to_lsl():
     """
     Generate two demo streams : Random and Line, and connect them to LSL
