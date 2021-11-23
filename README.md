@@ -7,6 +7,14 @@
 6) Copy MS32\dll\libusb-1.0.dll to #your venv#\Lib\site-packages\libusb_platform_windows\x86 
 7) Copy MS64\dll\libusb-1.0.dll to: #your venv#\Lib\site-packages\libusb_platform_windows\x64
 
+# USB collector:
+The USB collector is a utility file that deals with reading data from usb device.
+In order to access the usb device, the driver of the device must be of 'libusb'.
+If you encounter with this error:
+*"usb.core.USBError: [Errno 5] Input/Output Error"*
+It means the device cannot be accessed for the mentioned reason. 
+In this case, use zadig-2.7.exe to change the driver. Link for instructions:
+https://github.com/pbatard/libwdi/wiki/Zadig
 
 Useful links:
 

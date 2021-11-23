@@ -16,6 +16,30 @@ PRODUCT_ID = 0xC002
 
     ################################# PyUSB ################################
 
+def foo():
+    # find our device
+    dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)
+
+    if dev is None:
+        raise ValueError('device not found')
+        sys.exit(1)
+    else:
+        print("Device Found")
+        usb.util.claim_interface(dev, 0)
+        dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)
+
+    try:
+        dev.set_configuration()
+        print("Configuration set")
+
+    except:
+        print("configuration not set")
+
+    data = dev.read(0x81, 4)
+    print(data)
+
+    usb.util.release_interface(dev, 0)
+
 def PyUSB_func():
 
     # find our device
@@ -31,41 +55,40 @@ def PyUSB_func():
     # configuration will be the active one
     dev.set_configuration()
 
-    # get an endpoint instance
-    cfg = dev.get_active_configuration()
-    intf = cfg[(0, 0)]
+    # first endpoint
+    endpoint = dev[0][(0, 0)][0]
 
-    ep = usb.util.find_descriptor(
-        intf,
-        # match the first OUT endpoint
-        custom_match= \
-            lambda e: \
-                usb.util.endpoint_direction(e.bEndpointAddress) == \
-                usb.util.ENDPOINT_OUT)
+    # read a data packet
+    data = None
+    while True:
+        try:
+            data = dev.read(endpoint.bEndpointAddress,
+                               endpoint.wMaxPacketSize)
+            print(data)
 
-    assert ep is not None
+        except usb.core.USBError as e:
+            print(e.errno)
+            data = None
+            if e.args == ('Operation timed out',):
+                continue
 
-    # write the data
-    ep.write('test')
 
-    ################################# libusb ################################
+    #
+    # ep = usb.util.find_descriptor(
+    #     intf,
+    #     # match the first OUT endpoint
+    #     custom_match= \
+    #         lambda e: \
+    #             usb.util.endpoint_direction(e.bEndpointAddress) == \
+    #             usb.util.ENDPOINT_OUT)
+    #
+    # assert ep is not None
 
-# def liusb_func():
-#     with usb1.USBContext() as context:
-#         handle = context.openByVendorIDAndProductID(
-#             VENDOR_ID,
-#             PRODUCT_ID,
-#             skip_on_error=True,
-#         )
-#         if handle is None:
-#             # Device not present, or user is not allowed to access device.
-#             pass
-#         with handle.claimInterface("INTERFACE"):
-#             # Do stuff with endpoints on claimed interface.
-#             pass
+    # # write the data
+    # ep.write('test')
 
 
 if __name__ == "__main__":
     PyUSB_func()
-
+    # foo()
 
