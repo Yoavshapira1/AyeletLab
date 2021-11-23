@@ -13,7 +13,7 @@ In order to access the usb device, the driver of the device must be of 'libusb'.
 If you encounter with this error:
 *"usb.core.USBError: [Errno 5] Input/Output Error"*
 It means the device cannot be accessed for the mentioned reason. 
-In this case, use zadig-2.7.exe to change the driver. Link for instructions:
+In this case, use zadig-2.7.exe (under *Touch Utilities*) to change the driver. Link for instructions:
 https://github.com/pbatard/libwdi/wiki/Zadig
 
 Useful links:

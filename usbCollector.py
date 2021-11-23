@@ -54,8 +54,10 @@ def PyUSB_func():
     # set the active configuration. With no arguments, the first
     # configuration will be the active one
     dev.set_configuration()
-
+    print(dev[0][(0, 0)][0])
+    # exit()
     # first endpoint
+
     endpoint = dev[0][(0, 0)][0]
 
     # read a data packet
