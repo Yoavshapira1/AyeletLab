@@ -1,22 +1,20 @@
 import time
 from kivy.app import App
-from kivy.core.window import Window
+from kivy.clock import Clock
 from kivy.uix.widget import Widget
-from kivy import examples_dir
-import multiprocessing as mp
 from osc4py3.as_eventloop import *
 from osc4py3 import oscbuildparse
 from osc4py3 import oscmethod as osm
 from pylsl import StreamInfo, StreamOutlet
+from matplotlib import pyplot as plt, animation
 
-
-IP = "132.64.196.174"
+# UPD details
+IP = "127.0.0.1"
 OSC_CLIENT = 12001
 OSC_SERVER = 12002
-TOUCH_SCREEN = "wm_touch"
-movements = {0 : (0,0,0)}
-ON = 1
-OFF = 0
+
+# Determines how many different touch detections can be realized by the Max machine as different channels
+CHANNELS = 1
 
 
     ########################## OSC protocol #############################
@@ -73,47 +71,133 @@ def send_to_OSC():
 
     ########################## USB COLLECT ###############################
 
+class TouchEvent:
+    """
+    This class represents a single motion event on the screen
+    """
+
+    def __init__(self):
+        self.id = -1
+        self.pos = (0, 0)
+        self.switch = False
+
+    def activate(self):
+        self.switch = True
+
+    def deactivate(self):
+        self.switch = False
+
+    def move(self, pos):
+        self.pos = pos
+
+    def rename_id(self, id):
+        self.id = id
+
+    def isActive(self):
+        return self.switch
+
+    def id(self):
+        return self.id
+
+    def pos(self):
+        return self.pos
+
+    def data(self):
+        if not self.switch:
+            return [-1, -1]
+        return [self.pos[0], self.pos[1]]
+
+
+    def __repr__(self):
+        return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, self.pos)
+
+class costumer():
+
+    def __init__(self):
+        self.fig = plt.figure()
+        self.x = []
+        self.y = []
+        self.anim = animation.FuncAnimation(self.fig, self.animate, frames=100, interval=1000)
+
+    def animate(n):
+        line, = plt.plot(self.x[:n], self.y[:n], color='g')
+        return line,
+
+    plt.show()
+
+
+
+        plt.show()
+
+class LSLconnection:
+
+    def __init__(self, channels):
+        self.channels = channels
+        self.info = StreamInfo(name="Touch events", source_id='myuid', channel_count=len(channels) * 2)
+        self.outlet = StreamOutlet(self.info)
+        print("-------------Outlet stream was created, LSL connections established successfully------------")
+
+        self.costumer = costumer()
+
+    def broadcast(self, *args):
+
+        # Broadcasting to LSL
+        to_broadcast = []
+        for ch in self.channels:
+            to_broadcast += ch.data()
+        self.outlet.push_sample(to_broadcast)
+
+        # Broadcasting to another costumer
+        self.costumer.broadcast(to_broadcast)
+
+
 class TouchInput(Widget):
 
+    def __init__(self, channels, **kwargs):
+        super().__init__(**kwargs)
+        self.channels = channels
+
+    # Name of the touch type that is to be detected as a touch event
+    TOUCH_SCREEN = "wm_touch"
+
     def on_touch_down(self, touch):
-        if touch.device == TOUCH_SCREEN:
-            movements[0] = (touch.sx, touch.sy, ON)
-            print(movements[0])
+        if touch.device != self.TOUCH_SCREEN:
+            return
+        for ch in self.channels:
+            if not ch.isActive():
+                ch.move((touch.sx, touch.sy))
+                ch.rename_id(touch.id)
+                ch.activate()
+                break
 
     def on_touch_move(self, touch):
-        if touch.device == TOUCH_SCREEN:
-            movements[0] = (touch.sx, touch.sy, ON)
-            print(movements[0])
+        if touch.device != self.TOUCH_SCREEN:
+            return
+        for ch in self.channels:
+            if ch.id == touch.id:
+                ch.move((touch.sx, touch.sy))
+                break
 
     def on_touch_up(self, touch):
-        if touch.device == TOUCH_SCREEN:
-            movements[0] = (touch.sx, touch.sy, OFF)
-            print(movements[0])
+        if touch.device != self.TOUCH_SCREEN:
+            return
+        for ch in self.channels:
+            if ch.id == touch.id:
+                ch.deactivate()
+                break
 
 
 class MyApp(App):
 
-    def build(self):
-        return TouchInput()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.channels = [TouchEvent() for ch in range(CHANNELS)]
+        self.LSLconn = LSLconnection(self.channels)
 
-def send_data(id : int):
-    print("worker ID: ", id)
-    info = StreamInfo(name='Movements', source_id='myuid{}'.format(id), channel_count=3)
-    print("worker {} stream info created".format(id))
-    outlet = StreamOutlet(info)
-    print("worker {} outlet info created".format(id))
-    while True:
-        outlet.push_sample(movements[id])
-        print(movements[id])
-        time.sleep(0.01)
+    def build(self):
+        Clock.schedule_interval(self.LSLconn.broadcast, 0.01)
+        return TouchInput(self.channels)
+
 
 if __name__ == "__main__":
-    # Window.bind(on_motion=on_motion)
-
     MyApp().run()
-
-    # data_to_LSL_process = mp.Process(target=send_data, args=(0,))
-    # data_to_LSL_process.start()
-    # app_process = mp.Process(target=MyApp.run)
-    # app_process.start()
-

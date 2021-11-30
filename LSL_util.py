@@ -70,6 +70,7 @@ def demo_data_line(id : int) -> None:
         outlet.push_sample(mysample)
         time.sleep(0.01)
 
+
 def create_worker(id, data):
     print("worker ID: ", id)
     info = StreamInfo(name='Move{}'.format(id))
@@ -114,11 +115,6 @@ def plot_data(filename : str) -> None:
 
 
 
-
-
-
-
-
 if __name__ == "__main__":
     # master=tkinter.Tk()
     # master.title("Random")
@@ -130,7 +126,7 @@ if __name__ == "__main__":
     #
     # master.mainloop()
 
-    connect_demo_to_lsl()
+    # connect_demo_to_lsl()
 
-    demo_data_filename = r''
+    demo_data_filename = r'C:\Users\yoavsha\Desktop\LSL\Recordings\sub-P001\ses-S001\eeg\sub-P001_ses-S001_task-Default_run-001_eeg.xdf'
     plot_data(demo_data_filename)

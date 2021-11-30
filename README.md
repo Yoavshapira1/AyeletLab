@@ -32,3 +32,6 @@ https://github.com/walac/pyusb/blob/master/docs/tutorial.rst
 
 # osc4py3 Documentation:
 https://osc4py3.readthedocs.io/en/latest/
+
+# creating .exe from .py uses kivy features:
+https://github.com/kivy/kivy/issues/5807
