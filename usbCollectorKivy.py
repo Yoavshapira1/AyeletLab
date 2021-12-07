@@ -1,80 +1,29 @@
-import time
-from copy import copy
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.uix.widget import Widget
-from osc4py3.as_eventloop import *
-from osc4py3 import oscbuildparse
-from osc4py3 import oscmethod as osm
 from pylsl import StreamInfo, StreamOutlet
-from matplotlib import pyplot as plt, animation
+from pythonosc.udp_client import SimpleUDPClient
 
-# UPD details
+# UDP details
 IP = "127.0.0.1"
-OSC_CLIENT = 12001
-OSC_SERVER = 12002
+CLIENT_PORT = 2222
+SERVER_PORT = 2223
 
 # Determines how many different touch detections can be realized by the Max machine as different channels
-CHANNELS = 1
-
-
-    ########################## OSC protocol #############################
-
-def handlerfunction(s, x, y):
-    # Will receive message data unpacked in s, x, y
-    pass
-
-def handlerfunction2(address, s, x, y):
-    # Will receive message address, and message data flattened in s, x, y
-    pass
-
-def recieve_from_OSC():
-    # Start the system.
-    osc_startup()
-
-    # Make server channels to receive packets.
-    osc_udp_server(IP, OSC_SERVER, "aservername")
-    osc_udp_client(IP, OSC_CLIENT, "aclientname")
-
-    # Associate Python functions with message address patterns, using default
-    # argument scheme OSCARG_DATAUNPACK.
-    osc_method("/test/*", handlerfunction)
-    # Too, but request the message address pattern before in argscheme
-    osc_method("/test/*", handlerfunction2, argscheme=osm.OSCARG_ADDRESS + osm.OSCARG_DATAUNPACK)
-
-    # Buils a complete bundle, and postpone its executions by 10 sec.
-    exectime = time.time() + 10  # execute in 10 seconds
-    msg1 = oscbuildparse.OSCMessage("/sound/levels", None, [1, 5, 3])
-    msg2 = oscbuildparse.OSCMessage("/sound/bits", None, [32])
-    msg3 = oscbuildparse.OSCMessage("/sound/freq", None, [42000])
-    bun = oscbuildparse.OSCBundle(oscbuildparse.unixtime2timetag(exectime),
-                                  [msg1, msg2, msg3])
-    osc_send(bun, "aclientname")
-
-    # Periodically call osc4py3 processing method in your event loop.
-    finished = False
-    while not finished:
-        osc_process()
-
-    # Properly close the system.
-    osc_terminate()
-
-def send_to_OSC():
-
-    # Build a simple message and send it.
-    msg = oscbuildparse.OSCMessage("/test/me", ",sif", ["text", 672, 8.871])
-    osc_send(msg, "aclientname")
-
-    # Build a message with autodetection of data types, and send it.
-    msg = oscbuildparse.OSCMessage("/test/me", None, ["text", 672, 8.871])
-    osc_send(msg, "aclientname")
-
+CHANNELS = 2
 
     ########################## USB COLLECT ###############################
 
 class TouchEvent:
     """
-    This class represents a single motion event on the screen
+    This object represents a single touch on the touch screen.
+    A touch event defined to start when a touch is detected till this very touch leaves the screen.
+    It has the attributes:
+        id: Unique id for the touch event.
+        pos: The current position of the touch event. In case the switch is False, it holds the last position.
+        switch: Activation boolean value, True if the event still occurring, meanly the touch is still on the screen,
+        and False other wise.
+    The data of an event equals to [*pos], unless it switched to False and then the data is equal to [-1,-1].
     """
 
     def __init__(self):
@@ -112,16 +61,15 @@ class TouchEvent:
     def __repr__(self):
         return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, self.pos)
 
-class costumer():
-
+class UDPclient():
+    """
+    Object represents the connection to the UDP, which holds for the communication with Max8.
+    """
     def __init__(self):
-        self.x = -1
-        self.y = -1
+        self.client = SimpleUDPClient(IP, CLIENT_PORT)
 
-    def broadcast(self, coor):
-        self.x = coor[0]
-        self.y = coor[1]
-        print(coor)
+    def broadcast(self, data):
+        self.client.send_message("/some/address", data)
 
 class LSLconnection:
 
@@ -131,10 +79,17 @@ class LSLconnection:
         self.outlet = StreamOutlet(self.info)
         print("-------------Outlet stream was created, LSL connections established successfully------------")
 
-        self.costumer = costumer()
+        self.costumer = UDPclient()
 
     def broadcast(self, *args):
-
+        """
+        Broadcasting the data from channels to the customers.
+        1st customer is LSL connection
+        2nd customer is UDP client
+        Data is a list of float numbers, in the shape:
+        (Time, Channels), where "Time" is the time stamp and channels is the number of channels defined by the run.
+        In order to plot the data correctly, a transposition needs to be applied
+        """
         # Broadcasting to LSL
         to_broadcast = []
         for ch in self.channels:
