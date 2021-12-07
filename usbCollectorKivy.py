@@ -1,4 +1,5 @@
 import time
+from copy import copy
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.uix.widget import Widget
@@ -96,10 +97,10 @@ class TouchEvent:
     def isActive(self):
         return self.switch
 
-    def id(self):
+    def get_id(self):
         return self.id
 
-    def pos(self):
+    def get_pos(self):
         return self.pos
 
     def data(self):
@@ -114,20 +115,13 @@ class TouchEvent:
 class costumer():
 
     def __init__(self):
-        self.fig = plt.figure()
-        self.x = []
-        self.y = []
-        self.anim = animation.FuncAnimation(self.fig, self.animate, frames=100, interval=1000)
+        self.x = -1
+        self.y = -1
 
-    def animate(n):
-        line, = plt.plot(self.x[:n], self.y[:n], color='g')
-        return line,
-
-    plt.show()
-
-
-
-        plt.show()
+    def broadcast(self, coor):
+        self.x = coor[0]
+        self.y = coor[1]
+        print(coor)
 
 class LSLconnection:
 
@@ -140,7 +134,7 @@ class LSLconnection:
         self.costumer = costumer()
 
     def broadcast(self, *args):
-
+        return
         # Broadcasting to LSL
         to_broadcast = []
         for ch in self.channels:
@@ -153,37 +147,53 @@ class LSLconnection:
 
 class TouchInput(Widget):
 
-    def __init__(self, channels, **kwargs):
+    def __init__(self, channels, waiting_ch, **kwargs):
         super().__init__(**kwargs)
         self.channels = channels
+        self.waiting_ch = waiting_ch
 
     # Name of the touch type that is to be detected as a touch event
     TOUCH_SCREEN = "wm_touch"
 
     def on_touch_down(self, touch):
-        if touch.device != self.TOUCH_SCREEN:
-            return
-        for ch in self.channels:
-            if not ch.isActive():
-                ch.move((touch.sx, touch.sy))
-                ch.rename_id(touch.id)
-                ch.activate()
-                break
+
+        print(*self.channels, self.waiting_ch)
+
+        # If not touch screen type, do nothing
+        if touch.device == self.TOUCH_SCREEN:
+
+            # Check if any available channel
+            for ch in [*self.channels, self.waiting_ch]:
+                if not ch.isActive():
+                    ch.move((touch.sx, touch.sy))
+                    ch.rename_id(touch.id)
+                    ch.activate()
+                    break
 
     def on_touch_move(self, touch):
-        if touch.device != self.TOUCH_SCREEN:
-            return
-        for ch in self.channels:
-            if ch.id == touch.id:
-                ch.move((touch.sx, touch.sy))
-                break
+        print(*self.channels, self.waiting_ch)
+        if touch.device == self.TOUCH_SCREEN:
+            for ch in [*self.channels, self.waiting_ch]:
+                if ch.get_id() == touch.id:
+                    ch.move((touch.sx, touch.sy))
+                    break
 
     def on_touch_up(self, touch):
+        print(*self.channels, self.waiting_ch)
         if touch.device != self.TOUCH_SCREEN:
             return
+        if self.waiting_ch.get_id() == touch.id:
+            self.waiting_ch.deactivate()
+            return
         for ch in self.channels:
-            if ch.id == touch.id:
-                ch.deactivate()
+            if ch.get_id() == touch.id:
+                if self.waiting_ch.isActive():
+                    ch.rename_id(self.waiting_ch.get_id())
+                    ch.move(self.waiting_ch.get_pos())
+                    ch.activate()
+                    self.waiting_ch.deactivate()
+                else:
+                    ch.deactivate()
                 break
 
 
@@ -192,11 +202,12 @@ class MyApp(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.channels = [TouchEvent() for ch in range(CHANNELS)]
+        self.waiting_channel = TouchEvent()
         self.LSLconn = LSLconnection(self.channels)
 
     def build(self):
         Clock.schedule_interval(self.LSLconn.broadcast, 0.01)
-        return TouchInput(self.channels)
+        return TouchInput(self.channels, self.waiting_channel)
 
 
 if __name__ == "__main__":
