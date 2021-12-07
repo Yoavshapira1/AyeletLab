@@ -134,7 +134,7 @@ class LSLconnection:
         self.costumer = costumer()
 
     def broadcast(self, *args):
-        return
+
         # Broadcasting to LSL
         to_broadcast = []
         for ch in self.channels:
@@ -156,9 +156,6 @@ class TouchInput(Widget):
     TOUCH_SCREEN = "wm_touch"
 
     def on_touch_down(self, touch):
-
-        print(*self.channels, self.waiting_ch)
-
         # If not touch screen type, do nothing
         if touch.device == self.TOUCH_SCREEN:
 
@@ -171,7 +168,6 @@ class TouchInput(Widget):
                     break
 
     def on_touch_move(self, touch):
-        print(*self.channels, self.waiting_ch)
         if touch.device == self.TOUCH_SCREEN:
             for ch in [*self.channels, self.waiting_ch]:
                 if ch.get_id() == touch.id:
@@ -179,11 +175,7 @@ class TouchInput(Widget):
                     break
 
     def on_touch_up(self, touch):
-        print(*self.channels, self.waiting_ch)
         if touch.device != self.TOUCH_SCREEN:
-            return
-        if self.waiting_ch.get_id() == touch.id:
-            self.waiting_ch.deactivate()
             return
         for ch in self.channels:
             if ch.get_id() == touch.id:
@@ -195,6 +187,9 @@ class TouchInput(Widget):
                 else:
                     ch.deactivate()
                 break
+        if self.waiting_ch.get_id() == touch.id:
+            self.waiting_ch.deactivate()
+            return
 
 
 class MyApp(App):
