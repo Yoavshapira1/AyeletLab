@@ -1,8 +1,10 @@
 from kivy.app import App
 from kivy.clock import Clock
+from kivy.core.window import Window
 from kivy.uix.widget import Widget
 from pylsl import StreamInfo, StreamOutlet
 from pythonosc.udp_client import SimpleUDPClient
+import numpy as np
 
 # UDP details
 IP = "127.0.0.1"
@@ -11,6 +13,17 @@ SERVER_PORT = 2223
 
 # Determines how many different touch detections can be realized by the Max machine as different channels
 CHANNELS = 2
+
+# The shape of the grid
+CIRCULAR = 1
+RECT = 2
+GRID = RECT
+
+# The origin of the grid
+BOTTUM_LEFT = [0.0, 0.0]
+CENTER = [0.5, 0.5]
+ORIGIN = CENTER
+
 
     ########################## USB COLLECT ###############################
 
@@ -26,10 +39,12 @@ class TouchEvent:
     The data of an event equals to [*pos], unless it switched to False and then the data is equal to [-1,-1].
     """
 
-    def __init__(self):
+    def __init__(self, origin, grid):
         self.id = -1
         self.pos = (0, 0)
         self.switch = False
+        self.origin = origin
+        self.grid = grid
 
     def activate(self):
         self.switch = True
@@ -52,11 +67,23 @@ class TouchEvent:
     def get_pos(self):
         return self.pos
 
-    def data(self):
+    def generate_data(self):
+        x = self.pos[0] - self.origin[0]
+        y = self.pos[1] - self.origin[1]
+        if self.grid == CIRCULAR:
+            radius = np.sqrt(2*(x**2 + y**2))
+            if x == 0:
+                angel = np.pi / 2 if y > 0 else np.pi * (3/2)
+            else:
+                angel = np.arctan(y/x)
+            return [radius, 0.5 + np.abs(np.sin(angel)*np.cos(angel))]
+        return [0.5+np.abs(x), 0.5+np.abs(y)]
+
+
+    def get_data(self):
         if not self.switch:
             return [-1, -1]
-        return [self.pos[0], self.pos[1]]
-
+        return self.generate_data()
 
     def __repr__(self):
         return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, self.pos)
@@ -71,6 +98,14 @@ class UDPclient():
     def broadcast(self, data):
         self.client.send_message("/some/address", data)
 
+class Printer():
+    """
+    Object represents the connection to the UDP, which holds for the communication with Max8.
+    """
+
+    def broadcast(self, data):
+        print(data)
+
 class LSLconnection:
 
     def __init__(self, channels):
@@ -80,6 +115,7 @@ class LSLconnection:
         print("-------------Outlet stream was created, LSL connections established successfully------------")
 
         self.costumer = UDPclient()
+        # self.costumer = Printer()
 
     def broadcast(self, *args):
         """
@@ -93,7 +129,7 @@ class LSLconnection:
         # Broadcasting to LSL
         to_broadcast = []
         for ch in self.channels:
-            to_broadcast += ch.data()
+            to_broadcast += ch.get_data()
         self.outlet.push_sample(to_broadcast)
 
         # Broadcasting to another costumer
@@ -146,13 +182,12 @@ class TouchInput(Widget):
             self.waiting_ch.deactivate()
             return
 
-
 class MyApp(App):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.channels = [TouchEvent() for ch in range(CHANNELS)]
-        self.waiting_channel = TouchEvent()
+        self.channels = [TouchEvent(ORIGIN, GRID) for ch in range(CHANNELS)]
+        self.waiting_channel = TouchEvent(ORIGIN, GRID)
         self.LSLconn = LSLconnection(self.channels)
 
     def build(self):
