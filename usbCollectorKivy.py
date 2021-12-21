@@ -1,6 +1,5 @@
 from kivy.app import App
 from kivy.clock import Clock
-from kivy.core.window import Window
 from kivy.uix.widget import Widget
 from pylsl import StreamInfo, StreamOutlet
 from pythonosc.udp_client import SimpleUDPClient
@@ -12,20 +11,24 @@ CLIENT_PORT = 2222
 SERVER_PORT = 2223
 
 # Determines how many different touch detections can be realized by the Max machine as different channels
-CHANNELS = 2
+CHANNELS = 4
 
 # The shape of the grid
-CIRCULAR = 1
-RECT = 2
-GRID = RECT
+Circular = 1
+Rectangle = 2
 
 # The origin of the grid
-BOTTUM_LEFT = [0.0, 0.0]
-CENTER = [0.5, 0.5]
-ORIGIN = CENTER
+Bottom_left = [0.0, 0.0]
+Center = [0.5, 0.5]
+Center_bottom = [0.5, 0]
+
+# The actual parameters fed into the machine
+ORIGIN = Center
+GRID = Rectangle
+RANDOM = False
 
 
-    ########################## USB COLLECT ###############################
+########################## USB COLLECT ###############################
 
 class TouchEvent:
     """
@@ -39,12 +42,13 @@ class TouchEvent:
     The data of an event equals to [*pos], unless it switched to False and then the data is equal to [-1,-1].
     """
 
-    def __init__(self, origin, grid):
+    def __init__(self, origin, grid, random):
         self.id = -1
         self.pos = (0, 0)
         self.switch = False
         self.origin = origin
         self.grid = grid
+        self.random = random
 
     def activate(self):
         self.switch = True
@@ -67,44 +71,84 @@ class TouchEvent:
     def get_pos(self):
         return self.pos
 
-    def generate_data(self):
+    def circular_rep(self):
+        # 'raw' euclidean distance of the position from the origin
         x = self.pos[0] - self.origin[0]
         y = self.pos[1] - self.origin[1]
-        if self.grid == CIRCULAR:
-            radius = np.sqrt(2*(x**2 + y**2))
-            if x == 0:
-                angel = np.pi / 2 if y > 0 else np.pi * (3/2)
-            else:
-                angel = np.arctan(y/x)
-            return [radius, 0.5 + np.abs(np.sin(angel)*np.cos(angel))]
-        return [0.5+np.abs(x), 0.5+np.abs(y)]
 
+        # calculate normalized radius. Normalization done by stretching the maximum value to 1.
+        if self.origin == Center:
+            # origin = (0.5, 0.5) ==>> max value = sqrt(0.5)
+            radius = np.sqrt(2 * (x ** 2 + y ** 2))
+        elif self.origin == Center_bottom:
+            # origin = (0.5, 0) ==>> max value = sqrt(5/4)
+            radius = np.sqrt(4 / 5 * (x ** 2 + y ** 2))
+        else:
+            # origin = (0, 0) ==>> max value = sqrt(2)
+            radius = np.sqrt((x ** 2 + y ** 2) / 2)
+
+        tan = 0 if x == 0 else np.abs(np.tanh(y / x))
+        return [radius, tan]
+
+    def physical_data(self):
+        # Grid is CIRCULAR <=> Origin is CENTER
+        if self.grid == Circular:
+            return self.circular_rep()
+
+        # else => Origin maybe not CENTER
+        # If origin is center, the normalization is just *2 for both axis
+        elif self.origin == Center:
+            return [2 * np.abs(self.pos[0] - self.origin[0]), 2 * np.abs(self.pos[1] - self.origin[1])]
+
+        # If origin is X center, Y bottom, the normalization is *2 only for X axis
+        elif self.origin == Center_bottom:
+            return [2 * np.abs(self.pos[0] - self.origin[0]), np.abs(self.pos[1] - self.origin[1])]
+        # else => origin is default (bottom left), no normalization required
+        else:
+            return [self.pos[0], self.pos[1]]
+
+    def random_data(self):
+        mean1, sd1 = self.pos[0], np.abs(self.pos[1])
+        mean2, sd2 = self.pos[1], np.abs(self.pos[0])
+        x = np.random.normal(mean1, sd1)
+        y = np.random.normal(mean2, sd2)
+
+        return [np.abs(min(1.0, x)), np.abs(min(1.0, y))]
 
     def get_data(self):
         if not self.switch:
             return [-1, -1]
-        return self.generate_data()
+
+        if self.random:
+            return self.random_data()
+
+        else:
+            return self.physical_data()
 
     def __repr__(self):
         return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, self.pos)
 
-class UDPclient():
+
+class UDPclient:
     """
     Object represents the connection to the UDP, which holds for the communication with Max8.
     """
+
     def __init__(self):
         self.client = SimpleUDPClient(IP, CLIENT_PORT)
 
     def broadcast(self, data):
         self.client.send_message("/some/address", data)
 
-class Printer():
+
+class Printer:
     """
     Object represents the connection to the UDP, which holds for the communication with Max8.
     """
 
     def broadcast(self, data):
         print(data)
+
 
 class LSLconnection:
 
@@ -182,12 +226,13 @@ class TouchInput(Widget):
             self.waiting_ch.deactivate()
             return
 
+
 class MyApp(App):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.channels = [TouchEvent(ORIGIN, GRID) for ch in range(CHANNELS)]
-        self.waiting_channel = TouchEvent(ORIGIN, GRID)
+        self.channels = [TouchEvent(origin=ORIGIN, grid=GRID, random=RANDOM) for ch in range(CHANNELS)]
+        self.waiting_channel = TouchEvent(origin=ORIGIN, grid=GRID, random=RANDOM)
         self.LSLconn = LSLconnection(self.channels)
 
     def build(self):
