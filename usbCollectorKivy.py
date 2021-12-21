@@ -14,21 +14,16 @@ SERVER_PORT = 2223
 CHANNELS = 4
 
 # The shape of the grid
-Circular = 1
-Rectangle = 2
 GRID_dict = {
-                "Circular" : Circular,
-                "Rectangle" : Rectangle
+                "Circular" : 1,
+                "Rectangle" : 2
             }
 
 # The origin of the grid
-Bottom_left = [0.0, 0.0]
-Center = [0.5, 0.5]
-Center_bottom = [0.5, 0]
 ORIGIN_dict = {
-                "Bottom_left" : Bottom_left,
-                "Center" : Center,
-                "Center_bottom" : Center_bottom,
+                "Bottom_left" : [0.0, 0.0],
+                "Center" : [0.5, 0.5],
+                "Center_bottom" : [0.5, 0],
             }
 
 # The actual parameters fed into the machine
