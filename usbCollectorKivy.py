@@ -16,15 +16,24 @@ CHANNELS = 4
 # The shape of the grid
 Circular = 1
 Rectangle = 2
+GRID_dict = {
+                "Circular" : Circular,
+                "Rectangle" : Rectangle
+            }
 
 # The origin of the grid
 Bottom_left = [0.0, 0.0]
 Center = [0.5, 0.5]
 Center_bottom = [0.5, 0]
+ORIGIN_dict = {
+                "Bottom_left" : Bottom_left,
+                "Center" : Center,
+                "Center_bottom" : Center_bottom,
+            }
 
 # The actual parameters fed into the machine
-ORIGIN = Center
-GRID = Rectangle
+ORIGIN = "Center"
+GRID = "Rectangle"
 RANDOM = False
 
 
@@ -46,8 +55,8 @@ class TouchEvent:
         self.id = -1
         self.pos = (0, 0)
         self.switch = False
-        self.origin = origin
-        self.grid = grid
+        self.origin = ORIGIN_dict[origin]
+        self.grid = GRID_dict[grid]
         self.random = random
 
     def activate(self):
@@ -152,9 +161,9 @@ class Printer:
 
 class LSLconnection:
 
-    def __init__(self, channels):
+    def __init__(self, channels, type):
         self.channels = channels
-        self.info = StreamInfo(name="Touch events", source_id='myuid', channel_count=len(channels) * 2)
+        self.info = StreamInfo(name="Touch events", type=type, channel_count=len(channels) * 2)
         self.outlet = StreamOutlet(self.info)
         print("-------------Outlet stream was created, LSL connections established successfully------------")
 
@@ -231,13 +240,21 @@ class MyApp(App):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.channels = [TouchEvent(origin=ORIGIN, grid=GRID, random=RANDOM) for ch in range(CHANNELS)]
-        self.waiting_channel = TouchEvent(origin=ORIGIN, grid=GRID, random=RANDOM)
-        self.LSLconn = LSLconnection(self.channels)
+
+        self.parameters = [ORIGIN, GRID, RANDOM]
+        self.channels = [TouchEvent(*self.parameters) for ch in range(CHANNELS)]
+        self.waiting_channel = TouchEvent(*self.parameters)
+        self.LSLconn = LSLconnection(self.channels, self.generate_type_string())
 
     def build(self):
         Clock.schedule_interval(self.LSLconn.broadcast, 0.01)
         return TouchInput(self.channels, self.waiting_channel)
+
+    def generate_type_string(self):
+        origin, grid, random = self.parameters[0], self.parameters[1], self.parameters[2]
+        return "Origin: " + origin +\
+               ", " + "Grid: " + grid +\
+               ", " + "Random Sound: " + str(random)
 
 
 if __name__ == "__main__":
