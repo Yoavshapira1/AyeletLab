@@ -7,6 +7,7 @@ import numpy as np
 
 # TODO: change interval of recording to ms
 # TODO: Separate the broadcasted data to two different types: "Coordinates" and "outcome"
+# TODO : check if LSL can get None as data, if yes - change Channel.pos
 
 # UDP details
 IP = "127.0.0.1"
