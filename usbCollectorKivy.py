@@ -5,13 +5,16 @@ from pylsl import StreamInfo, StreamOutlet
 from pythonosc.udp_client import SimpleUDPClient
 import numpy as np
 
+# TODO: change interval of recording to ms
+# TODO: Separate the broadcasted data to two different types: "Coordinates" and "outcome"
+
 # UDP details
 IP = "127.0.0.1"
 CLIENT_PORT = 2222
 SERVER_PORT = 2223
 
 # Determines how many different touch detections can be realized by the Max machine as different channels
-CHANNELS = 4
+CHANNELS = 2
 
 # The shape of the grid
 GRID_dict = {
@@ -81,10 +84,10 @@ class TouchEvent:
         y = self.pos[1] - self.origin[1]
 
         # calculate normalized radius. Normalization done by stretching the maximum value to 1.
-        if self.origin == Center:
+        if self.origin == "Center":
             # origin = (0.5, 0.5) ==>> max value = sqrt(0.5)
             radius = np.sqrt(2 * (x ** 2 + y ** 2))
-        elif self.origin == Center_bottom:
+        elif self.origin == "Center_bottom":
             # origin = (0.5, 0) ==>> max value = sqrt(5/4)
             radius = np.sqrt(4 / 5 * (x ** 2 + y ** 2))
         else:
@@ -96,16 +99,16 @@ class TouchEvent:
 
     def physical_data(self):
         # Grid is CIRCULAR <=> Origin is CENTER
-        if self.grid == Circular:
+        if self.grid == "Circular":
             return self.circular_rep()
 
         # else => Origin maybe not CENTER
         # If origin is center, the normalization is just *2 for both axis
-        elif self.origin == Center:
+        elif self.origin == "Center":
             return [2 * np.abs(self.pos[0] - self.origin[0]), 2 * np.abs(self.pos[1] - self.origin[1])]
 
         # If origin is X center, Y bottom, the normalization is *2 only for X axis
-        elif self.origin == Center_bottom:
+        elif self.origin == "Center_bottom":
             return [2 * np.abs(self.pos[0] - self.origin[0]), np.abs(self.pos[1] - self.origin[1])]
         # else => origin is default (bottom left), no normalization required
         else:
@@ -253,4 +256,5 @@ class MyApp(App):
 
 
 if __name__ == "__main__":
+    print("helllllo")
     MyApp().run()
