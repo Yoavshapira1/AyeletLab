@@ -29,7 +29,7 @@ ORIGIN_dict = {
             }
 
 # The actual parameters fed into the machine
-ORIGIN = "Center"
+ORIGIN = "Bottom_left"
 GRID = "Rectangle"
 RANDOM = False
 parameters = [ORIGIN, GRID, RANDOM]
