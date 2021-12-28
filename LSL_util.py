@@ -101,27 +101,23 @@ def plot_data(filename : str) -> None:
     :param filename: path to the file contains the data
     """
     data, header = xdf.load_xdf(filename)
-    print(data[0]['info']['type'])
-    print(data[0]['info'])
-    # print(data[0]['desc'])
-    # print(header)
 
-    # for stream in data:
-    #     y = stream['time_series']
-    #
-    #     if isinstance(y, list):
-    #         # list of strings, draw one vertical line for each marker
-    #         for timestamp, marker in zip(stream['time_stamps'], y):
-    #             plt.axvline(x=timestamp)
-    #             print(f'Marker "{marker[0]}" @ {timestamp:.2f}s')
-    #     elif isinstance(y, np.ndarray):
-    #         # numeric data, draw as lines
-    #         plt.plot(stream['time_stamps'], y)
-    #     else:
-    #         raise RuntimeError('Unknown stream format')
-    #
-    # plt.show()
+    # extract data in shape of (N, T)where N is number of channels and T is total interval
+    numeric_data = data[0]['time_series'].T
+    interval = np.arange(numeric_data.shape[1])
+    print(numeric_data.shape[1])
+    exit()
 
+    # extract x and y: even indices in the data are the x coordinates and odd are the y coordinates
+    x_coor = numeric_data[::2, :]   # even indices <=> odd places of rows
+    y_coor = numeric_data[1::2, :]  # odd indices <=> even places of rows
+
+    # plot each channel with an appropriate label
+    for ch in enumerate(zip (x_coor, y_coor)):
+        plt.plot(interval, ch[1][0], label='ch %d, x axis' % (ch[0]+1))
+        plt.plot(interval, ch[1][1], label='ch %d, y axis' % (ch[0]+1))
+        plt.legend()
+    plt.show()
 
 
 if __name__ == "__main__":

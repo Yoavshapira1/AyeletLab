@@ -6,8 +6,6 @@ from pythonosc.udp_client import SimpleUDPClient
 import numpy as np
 
 # TODO: change interval of recording to ms
-# TODO: Separate the broadcasted data to two different types: "Coordinates" and "outcome"
-# TODO : check if LSL can get None as data, if yes - change Channel.pos
 
 # UDP details
 IP = "127.0.0.1"
@@ -34,6 +32,7 @@ ORIGIN_dict = {
 ORIGIN = "Center"
 GRID = "Rectangle"
 RANDOM = False
+parameters = [ORIGIN, GRID, RANDOM]
 
 
 ########################## USB COLLECT ###############################
@@ -52,10 +51,12 @@ class TouchEvent:
 
     def __init__(self, origin, grid, random):
         self.id = -1
-        self.pos = (0, 0)
+        self.pos = [0, 0]
         self.switch = False
         self.origin = ORIGIN_dict[origin]
         self.grid = GRID_dict[grid]
+        self.origin_string = origin
+        self.grid_string = grid
         self.random = random
 
     def activate(self):
@@ -85,10 +86,10 @@ class TouchEvent:
         y = self.pos[1] - self.origin[1]
 
         # calculate normalized radius. Normalization done by stretching the maximum value to 1.
-        if self.origin == "Center":
+        if self.origin_string == "Center":
             # origin = (0.5, 0.5) ==>> max value = sqrt(0.5)
             radius = np.sqrt(2 * (x ** 2 + y ** 2))
-        elif self.origin == "Center_bottom":
+        elif self.origin_string == "Center_bottom":
             # origin = (0.5, 0) ==>> max value = sqrt(5/4)
             radius = np.sqrt(4 / 5 * (x ** 2 + y ** 2))
         else:
@@ -98,22 +99,22 @@ class TouchEvent:
         tan = 0 if x == 0 else np.abs(np.tanh(y / x))
         return [radius, tan]
 
-    def physical_data(self):
-        # Grid is CIRCULAR <=> Origin is CENTER
-        if self.grid == "Circular":
+    def generate_data(self):
+        if self.grid_string == "Circular":
             return self.circular_rep()
 
         # else => Origin maybe not CENTER
         # If origin is center, the normalization is just *2 for both axis
-        elif self.origin == "Center":
+        elif self.origin_string == "Center":
             return [2 * np.abs(self.pos[0] - self.origin[0]), 2 * np.abs(self.pos[1] - self.origin[1])]
 
         # If origin is X center, Y bottom, the normalization is *2 only for X axis
-        elif self.origin == "Center_bottom":
+        elif self.origin_string == "Center_bottom":
             return [2 * np.abs(self.pos[0] - self.origin[0]), np.abs(self.pos[1] - self.origin[1])]
+
         # else => origin is default (bottom left), no normalization required
         else:
-            return [self.pos[0], self.pos[1]]
+            return self.pos
 
     def random_data(self):
         mean1, sd1 = self.pos[0], np.abs(self.pos[1])
@@ -125,13 +126,13 @@ class TouchEvent:
 
     def get_data(self):
         if not self.switch:
-            return [-1, -1]
+            return [0, 0]
 
         if self.random:
             return self.random_data()
 
         else:
-            return self.physical_data()
+            return self.generate_data()
 
     def __repr__(self):
         return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, self.pos)
@@ -151,23 +152,45 @@ class UDPclient:
 
 class Printer:
     """
-    Object represents the connection to the UDP, which holds for the communication with Max8.
+    Broadcaster to the screen
     """
 
     def broadcast(self, data):
         print(data)
 
-
-class LSLconnection:
-
-    def __init__(self, channels, type):
+class LSLbroadcast:
+    """
+    A wrapper for a broadcasting LSL connection
+    """
+    def __init__(self, channels, session_info_LSL):
         self.channels = channels
-        self.info = StreamInfo(name="Touch events", type=type, channel_count=len(channels) * 2)
+        self.conn = self.establishLSL(session_info_LSL)
+
+    def establishLSL(self, session_info_LSL):
+        self.info = StreamInfo(name="Touch events", type=session_info_LSL, channel_count=len(self.channels) * 2)
         self.outlet = StreamOutlet(self.info)
         print("-------------Outlet stream was created, LSL connections established successfully------------")
+        print("-------------info type string: %s------------" % session_info_LSL)
 
-        self.costumer = UDPclient()
-        # self.costumer = Printer()
+    def broadcast(self, data):
+        """
+        Broadcasting the data to LSL connection
+        """
+        self.outlet.push_sample(data)
+
+
+class DataBroadcaster:
+
+    def __init__(self, channels):
+        self.channels = channels
+        self.LSLconn = LSLbroadcast(channels, self.generate_type_string())
+        self.udp_client = UDPclient()
+        self.printer = Printer()
+
+    def generate_type_string(self):
+        return "Origin: " + parameters[0] +\
+               ", " + "Grid: " + parameters[1] +\
+               ", " + "Random Sound: " + str(parameters[2])
 
     def broadcast(self, *args):
         """
@@ -178,22 +201,26 @@ class LSLconnection:
         (Time, Channels), where "Time" is the time stamp and channels is the number of channels defined by the run.
         In order to plot the data correctly, a transposition needs to be applied
         """
-        # Broadcasting to LSL
-        to_broadcast = []
+        # Prepare data
+        toUDP = []
+        toLSL = []
         for ch in self.channels:
-            to_broadcast += ch.get_data()
-        self.outlet.push_sample(to_broadcast)
+            toLSL += ch.get_pos()
+            toUDP += ch.get_data()
 
-        # Broadcasting to another costumer
-        self.costumer.broadcast(to_broadcast)
+        # Broadcasting the toLSL data to LSLconn
+        self.LSLconn.broadcast(toLSL)
+
+        # Broadcasting the toUDP data to UDPclient
+        self.udp_client.broadcast(toUDP)
 
 
 class TouchInput(Widget):
 
-    def __init__(self, channels, waiting_ch, **kwargs):
+    def __init__(self, channels, **kwargs):
         super().__init__(**kwargs)
         self.channels = channels
-        self.waiting_ch = waiting_ch
+        self.waiting_ch = self.waiting_channel = TouchEvent(*parameters)
 
     # Name of the touch type that is to be detected as a touch event
     TOUCH_SCREEN = "wm_touch"
@@ -239,23 +266,13 @@ class MyApp(App):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
-        self.parameters = [ORIGIN, GRID, RANDOM]
-        self.channels = [TouchEvent(*self.parameters) for ch in range(CHANNELS)]
-        self.waiting_channel = TouchEvent(*self.parameters)
-        self.LSLconn = LSLconnection(self.channels, self.generate_type_string())
+        self.channels = [TouchEvent(*parameters) for ch in range(CHANNELS)]
+        self.broadcaster = DataBroadcaster(self.channels)
 
     def build(self):
-        Clock.schedule_interval(self.LSLconn.broadcast, 0.01)
-        return TouchInput(self.channels, self.waiting_channel)
-
-    def generate_type_string(self):
-        origin, grid, random = self.parameters[0], self.parameters[1], self.parameters[2]
-        return "Origin: " + origin +\
-               ", " + "Grid: " + grid +\
-               ", " + "Random Sound: " + str(random)
+        Clock.schedule_interval(self.broadcaster.broadcast, 0.001)
+        return TouchInput(self.channels)
 
 
 if __name__ == "__main__":
-    print("helllllo")
     MyApp().run()
