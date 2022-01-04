@@ -1,3 +1,5 @@
+import time
+
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.uix.widget import Widget
@@ -5,15 +7,14 @@ from pylsl import StreamInfo, StreamOutlet
 from pythonosc.udp_client import SimpleUDPClient
 import numpy as np
 
-# TODO: change interval of recording to ms
-
 # UDP details
 IP = "127.0.0.1"
 CLIENT_PORT = 2222
 SERVER_PORT = 2223
 
 # Determines how many different touch detections can be realized by the Max machine as different channels
-CHANNELS = 2
+CHANNELS = 1
+PRINT_DATA = True
 
 # The shape of the grid
 GRID_dict = {
@@ -29,7 +30,7 @@ ORIGIN_dict = {
             }
 
 # The actual parameters fed into the machine
-ORIGIN = "Bottom_left"
+ORIGIN = "Center_bottom"
 GRID = "Rectangle"
 RANDOM = False
 parameters = [ORIGIN, GRID, RANDOM]
@@ -50,23 +51,38 @@ class TouchEvent:
     """
 
     def __init__(self, origin, grid, random):
+        # identity attributes
         self.id = -1
-        self.pos = [0, 0]
-        self.switch = False
         self.origin = ORIGIN_dict[origin]
         self.grid = GRID_dict[grid]
         self.origin_string = origin
         self.grid_string = grid
         self.random = random
 
+        # data-generating related
+        self.dt = 0.01                      # The delta in time which used to calculate velocity and acceleration
+        self.touch_time = 0
+        self.max_norm = np.linalg.norm(np.array([1, 1]) - self.origin)
+        self.vel_normalization = 15          # An arbitrary number - was chosen by observations
+        # initialize the values to zero
+        self.deactivate()
+
     def activate(self):
         self.switch = True
 
     def deactivate(self):
+        self.cur_pos = np.array([0, 0])
+        self.prev_pos = np.array([0, 0])    # The previous position is been updated every dt
+        self.prev_pos_time = time.time()
+        self.touch_time = 0
         self.switch = False
 
     def move(self, pos):
-        self.pos = pos
+        if time.time() - self.prev_pos_time > self.dt:
+            self.prev_pos = self.cur_pos
+            self.prev_pos_time = time.time()
+            self.touch_time += self.dt
+        self.cur_pos = np.array(pos)
 
     def rename_id(self, id):
         self.id = id
@@ -77,65 +93,84 @@ class TouchEvent:
     def get_id(self):
         return self.id
 
-    def get_pos(self):
-        return self.pos
+    def get_pos_as_list(self):
+        return self.cur_pos.tolist()
+
+    def get_prev_pos(self):
+        return self.prev_pos
+
+    def get_data(self):
+        # if this channel is note active, return None
+        if not self.switch:
+            return [0, 0, 0, 0]
+
+        # if this channel specified to random, generate random data
+        if self.random:
+            return self.random_data()
+
+        # ELSE: generate proper data set
+        else:
+            return self.generate_data()
 
     def circular_rep(self):
         # 'raw' euclidean distance of the position from the origin
-        x = self.pos[0] - self.origin[0]
-        y = self.pos[1] - self.origin[1]
+        dist = self.cur_pos - self.origin
+        norm = np.linalg.norm(dist)
 
         # calculate normalized radius. Normalization done by stretching the maximum value to 1.
-        if self.origin_string == "Center":
-            # origin = (0.5, 0.5) ==>> max value = sqrt(0.5)
-            radius = np.sqrt(2 * (x ** 2 + y ** 2))
-        elif self.origin_string == "Center_bottom":
-            # origin = (0.5, 0) ==>> max value = sqrt(5/4)
-            radius = np.sqrt(4 / 5 * (x ** 2 + y ** 2))
-        else:
-            # origin = (0, 0) ==>> max value = sqrt(2)
-            radius = np.sqrt((x ** 2 + y ** 2) / 2)
+        radius = np.sqrt(norm / self.max_norm)
 
-        tan = 0 if x == 0 else np.abs(np.tanh(y / x))
+        # calculate the angle from the origin
+        tan = 0 if dist[0] == 0 else np.abs(np.tanh(dist[1] / dist[0]))
         return [radius, tan]
 
-    def generate_data(self):
+    def get_positional_data(self):
         if self.grid_string == "Circular":
             return self.circular_rep()
 
         # else => Origin maybe not CENTER
         # If origin is center, the normalization is just *2 for both axis
         elif self.origin_string == "Center":
-            return [2 * np.abs(self.pos[0] - self.origin[0]), 2 * np.abs(self.pos[1] - self.origin[1])]
+            return [2 * np.abs(self.cur_pos[0] - self.origin[0]), 2 * np.abs(self.cur_pos[1] - self.origin[1])]
 
         # If origin is X center, Y bottom, the normalization is *2 only for X axis
         elif self.origin_string == "Center_bottom":
-            return [2 * np.abs(self.pos[0] - self.origin[0]), np.abs(self.pos[1] - self.origin[1])]
+            return [2 * np.abs(self.cur_pos[0] - self.origin[0]), np.abs(self.cur_pos[1] - self.origin[1])]
 
         # else => origin is default (bottom left), no normalization required
         else:
-            return self.pos
+            return self.cur_pos
+
+    def get_velocity(self):
+        # calculate pure velocity
+        vel = np.linalg.norm(self.cur_pos - self.prev_pos) / self.dt
+        # normalize: dividing by arbitrary number that was chosen by observations
+        return vel / self.vel_normalization
+
+    def touch_time_function(self, x):
+        if self.touch_time < 0.1:
+            return 1 / (1 + np.exp((-25*x) + 4))
+        return 1 / (1 + np.exp(-x + 4))
+
+    def get_touch_time(self):
+        return self.touch_time_function(self.touch_time)
+
+    def generate_data(self):
+        position = self.get_positional_data()
+        velocity = [min(1.0, self.get_velocity())]
+        touch_time = [self.get_touch_time()]
+        return position + velocity + touch_time
 
     def random_data(self):
-        mean1, sd1 = self.pos[0], np.abs(self.pos[1])
-        mean2, sd2 = self.pos[1], np.abs(self.pos[0])
+        mean1, sd1 = self.cur_pos[0], np.abs(self.cur_pos[1])
+        mean2, sd2 = self.cur_pos[1], np.abs(self.cur_pos[0])
         x = np.random.normal(mean1, sd1)
         y = np.random.normal(mean2, sd2)
 
         return [np.abs(min(1.0, x)), np.abs(min(1.0, y))]
 
-    def get_data(self):
-        if not self.switch:
-            return [0, 0]
-
-        if self.random:
-            return self.random_data()
-
-        else:
-            return self.generate_data()
-
     def __repr__(self):
-        return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, self.pos)
+        return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, self.cur_pos)
 
 
 class UDPclient:
@@ -183,9 +218,20 @@ class DataBroadcaster:
 
     def __init__(self, channels):
         self.channels = channels
-        self.LSLconn = LSLbroadcast(channels, self.generate_type_string())
-        self.udp_client = UDPclient()
-        self.printer = Printer()
+        self.positional_clients = self.initialize_positional_clients()
+        self.generated_data_clients = self.initialize_generated_data_clients_clients()
+
+    def initialize_positional_clients(self):
+        list = []
+        list.append(LSLbroadcast(self.channels, self.generate_type_string()))
+        return list
+
+    def initialize_generated_data_clients_clients(self):
+        list = []
+        list.append(UDPclient())
+        if PRINT_DATA:
+            list.append(Printer())
+        return list
 
     def generate_type_string(self):
         return "Origin: " + parameters[0] +\
@@ -202,18 +248,19 @@ class DataBroadcaster:
         In order to plot the data correctly, a transposition needs to be applied
         """
         # Prepare data
-        toUDP = []
-        toLSL = []
+        generated_data = []
+        positional_data = []
         for ch in self.channels:
-            toLSL += ch.get_pos()
-            toUDP += ch.get_data()
+            positional_data += ch.get_pos_as_list()
+            generated_data += ch.get_data()
 
-        # Broadcasting the toLSL data to LSLconn
-        self.LSLconn.broadcast(toLSL)
+        # Broadcasting the positional_data (i.e to LSL)
+        for client in self.positional_clients:
+            client.broadcast(positional_data)
 
-        # Broadcasting the toUDP data to UDPclient
-        self.udp_client.broadcast(toUDP)
-
+        # Broadcasting the generated_data (i.e to MAX)
+        for client in self.generated_data_clients:
+            client.broadcast(generated_data)
 
 class TouchInput(Widget):
 
@@ -232,7 +279,7 @@ class TouchInput(Widget):
             # Check if any available channel
             for ch in [*self.channels, self.waiting_ch]:
                 if not ch.isActive():
-                    ch.move((touch.sx, touch.sy))
+                    ch.move([touch.sx, touch.sy])
                     ch.rename_id(touch.id)
                     ch.activate()
                     break
@@ -241,7 +288,7 @@ class TouchInput(Widget):
         if touch.device == self.TOUCH_SCREEN:
             for ch in [*self.channels, self.waiting_ch]:
                 if ch.get_id() == touch.id:
-                    ch.move((touch.sx, touch.sy))
+                    ch.move([touch.sx, touch.sy])
                     break
 
     def on_touch_up(self, touch):
@@ -251,7 +298,7 @@ class TouchInput(Widget):
             if ch.get_id() == touch.id:
                 if self.waiting_ch.isActive():
                     ch.rename_id(self.waiting_ch.get_id())
-                    ch.move(self.waiting_ch.get_pos())
+                    ch.move(self.waiting_ch.get_pos_as_list())
                     ch.activate()
                     self.waiting_ch.deactivate()
                 else:
