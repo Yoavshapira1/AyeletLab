@@ -34,4 +34,7 @@ https://github.com/walac/pyusb/blob/master/docs/tutorial.rst
 https://osc4py3.readthedocs.io/en/latest/
 
 # creating .exe from .py uses kivy features:
-https://github.com/kivy/kivy/issues/5807
+- first make sure you have installed the venv properly:
+	https://kivy.org/doc/stable/gettingstarted/installation.html#kivy-source-install
+- then follow this guidence:
+	https://kivy.org/doc/stable/guide/packaging-windows.html#overwrite-win-hook

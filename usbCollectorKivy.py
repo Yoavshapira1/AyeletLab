@@ -13,8 +13,8 @@ CLIENT_PORT = 2222
 SERVER_PORT = 2223
 
 # Determines how many different touch detections can be realized by the Max machine as different channels
-CHANNELS = 1
-PRINT_DATA = True
+CHANNELS = 2
+PRINT_DATA = False
 
 # The shape of the grid
 GRID_dict = {
@@ -63,7 +63,8 @@ class TouchEvent:
         self.dt = 0.01                      # The delta in time which used to calculate velocity and acceleration
         self.touch_time = 0
         self.max_norm = np.linalg.norm(np.array([1, 1]) - self.origin)
-        self.vel_normalization = 15          # An arbitrary number - was chosen by observations
+        self.reduce_time_threshold = self.max_norm / 50  # ||pos - prev_pos|| > threshold => reduce time_touch by half
+        self.vel_normalization = 5          # An arbitrary number - was chosen by observations
         # initialize the values to zero
         self.deactivate()
 
@@ -79,6 +80,9 @@ class TouchEvent:
 
     def move(self, pos):
         if time.time() - self.prev_pos_time > self.dt:
+            if np.linalg.norm(self.cur_pos - self.prev_pos) > self.max_norm / self.reduce_time_threshold:
+                print("reduced time")
+                self.touch_time /= 2
             self.prev_pos = self.cur_pos
             self.prev_pos_time = time.time()
             self.touch_time += self.dt
@@ -148,9 +152,10 @@ class TouchEvent:
         return vel / self.vel_normalization
 
     def touch_time_function(self, x):
+        # sigmoid function
         if self.touch_time < 0.1:
-            return 1 / (1 + np.exp((-25*x) + 4))
-        return 1 / (1 + np.exp(-x + 4))
+            return 1 / (1 + np.exp((-10*x) +4))
+        return 1 / (1 + np.exp((-x/2) + 4))
 
     def get_touch_time(self):
         return self.touch_time_function(self.touch_time)
