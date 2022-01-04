@@ -80,9 +80,8 @@ class TouchEvent:
 
     def move(self, pos):
         if time.time() - self.prev_pos_time > self.dt:
-            if np.linalg.norm(self.cur_pos - self.prev_pos) > self.max_norm / self.reduce_time_threshold:
-                print("reduced time")
-                self.touch_time /= 2
+            if np.linalg.norm(self.cur_pos - self.prev_pos) > self.reduce_time_threshold:
+                self.touch_time *= np.linalg.norm(self.cur_pos - self.prev_pos)
             self.prev_pos = self.cur_pos
             self.prev_pos_time = time.time()
             self.touch_time += self.dt
@@ -154,7 +153,7 @@ class TouchEvent:
     def touch_time_function(self, x):
         # sigmoid function
         if self.touch_time < 0.1:
-            return 1 / (1 + np.exp((-10*x) +4))
+            return 1 / (1 + np.exp((-20*x) +4))
         return 1 / (1 + np.exp((-x/2) + 4))
 
     def get_touch_time(self):
