@@ -58,12 +58,13 @@ class TouchEvent:
         self.origin_string = origin
         self.grid_string = grid
         self.random = random
+        self.last_data = np.array([0, 0, 0, 0])
 
         # data-generating related
-        self.dt = 0.01                      # The delta in time which used to calculate velocity and acceleration
+        self.dt = 0.01                      # The delta in time which used to calculate velocity
         self.touch_time = 0
         self.max_norm = np.linalg.norm(np.array([1, 1]) - self.origin)
-        self.reduce_time_threshold = self.max_norm / 50  # ||pos - prev_pos|| > threshold => reduce time_touch by half
+        self.reduce_time_threshold = self.max_norm / 50  # ||pos - prev_pos|| > threshold => reduce time_touch
         self.vel_normalization = 5          # An arbitrary number - was chosen by observations
         # initialize the values to zero
         self.deactivate()
@@ -79,9 +80,12 @@ class TouchEvent:
         self.switch = False
 
     def move(self, pos):
+        # change previous position only if dt time has passed
         if time.time() - self.prev_pos_time > self.dt:
-            if np.linalg.norm(self.cur_pos - self.prev_pos) > self.reduce_time_threshold:
-                self.touch_time *= np.linalg.norm(self.cur_pos - self.prev_pos)
+            # reduce the time touch value if position is changed a lot
+            ds = np.linalg.norm(self.cur_pos - self.prev_pos)
+            if ds > self.reduce_time_threshold:
+                self.touch_time *= ds       # ds < 1 so results in reducing value
             self.prev_pos = self.cur_pos
             self.prev_pos_time = time.time()
             self.touch_time += self.dt
@@ -103,7 +107,7 @@ class TouchEvent:
         return self.prev_pos
 
     def get_data(self):
-        # if this channel is note active, return None
+        # if this channel is note active
         if not self.switch:
             return [0, 0, 0, 0]
 
@@ -152,7 +156,7 @@ class TouchEvent:
 
     def touch_time_function(self, x):
         # sigmoid function
-        if self.touch_time < 0.1:
+        if self.touch_time < 0.07:
             return 1 / (1 + np.exp((-20*x) +4))
         return 1 / (1 + np.exp((-x/2) + 4))
 
@@ -188,7 +192,6 @@ class UDPclient:
     def broadcast(self, data):
         self.client.send_message("/some/address", data)
 
-
 class Printer:
     """
     Broadcaster to the screen
@@ -216,7 +219,6 @@ class LSLbroadcast:
         Broadcasting the data to LSL connection
         """
         self.outlet.push_sample(data)
-
 
 class DataBroadcaster:
 
@@ -323,7 +325,6 @@ class MyApp(App):
     def build(self):
         Clock.schedule_interval(self.broadcaster.broadcast, 0.001)
         return TouchInput(self.channels)
-
 
 if __name__ == "__main__":
     MyApp().run()
