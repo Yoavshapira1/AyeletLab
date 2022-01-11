@@ -1,5 +1,5 @@
 001
-60
+500
 
 // USAGE: 
 // To sun the code, copy this into the command line and hit enter:

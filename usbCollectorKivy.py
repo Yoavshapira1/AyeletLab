@@ -10,6 +10,7 @@ import numpy as np
 # https://kivy.org/doc/stable/guide/inputs.html#touch-events
 # and look for more touch possibilities
 # TODO: check if the velocity and time_tocuh been updated when just STAYING.
+# TODO: consider using built-in attribute of touch events
 
 # UDP details
 IP = "127.0.0.1"
@@ -26,7 +27,7 @@ MOUSE_DEV_MODE = True
 # Determines how many different touch detections can be realized by the Max machine as different channels
 CHANNELS = 1
 # Scale of the time series
-TIME_SERIES_DT = 0.001
+TIME_SERIES_DT = 0.01
 
 # The shape of the grid
 GRID_dict = {
@@ -298,9 +299,6 @@ class TouchInput(Widget):
                 if ch.get_id() == touch.id:
                     ch.move([touch.sx, touch.sy])
                     break
-
-    def on_motion(self, touch):
-        print("motions")
 
     def on_touch_up(self, touch):
         if touch.device != self.touch_mode:

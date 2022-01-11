@@ -6,22 +6,48 @@ from kivy.core.window import Window
 from kivy.uix.widget import Widget
 import csv
 
-TOUCH_SCREEN = "wm_touch"
+# TODO: open new directory for every subject, even with same name
+
+TOUCH_SCREEN = "mouse"
 data = []
 subject_id = ""
 interval = 60
-# dir = os.path.abspath(os.getcwd())
-dir = os.path.dirname(os.path.abspath(__file__))
+dir = os.getcwd()
 
+# read the parameters: Subject & Time
 with open(dir+r'\config.txt', 'r') as con:
     subject_id = con.readline().strip()
     interval = int(con.readline().strip())
 
-class TouchInput(Widget):
+# create new directory for the subject
+i = 0
+while True:
+    if os.path.isdir(subject_id + r"_%d" % i):
+        i += 1
+        sub_dir = subject_id + r"_%d" % i
+    else:
+        break
+subject_dir = subject_id + r"_%d" % i
+os.mkdir(subject_id + r"_%d" % i)
+
+
+class Tapper(Widget):
 
     def on_touch_down(self, touch):
         if touch.device == TOUCH_SCREEN:
-            data.append([subject_id, touch.id, time.time() * 100000])
+            # data.append([subject_id, touch.id, time.time() * 100000])
+            print(touch.spos)
+            print(touch.dsx, touch.dsy)
+
+    def on_touch_move(self, touch):
+        if touch.device == TOUCH_SCREEN:
+            print(touch.spos)
+            print(touch.dsx, touch.dsy)
+
+    def on_touch_up(self, touch):
+        if touch.device == TOUCH_SCREEN:
+            print(touch.spos)
+            print(touch.dsx, touch.dsy)
 
 class MyApp(App):
 
@@ -46,6 +72,7 @@ class MyApp(App):
             write.writerows(data)
 
 if __name__ == "__main__":
-    Window.fullscreen = True
-    Window.exit_on_escape = True
     MyApp().run()
+
+
+
