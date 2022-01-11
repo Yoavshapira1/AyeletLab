@@ -36,6 +36,7 @@ class EnterSubjectName(Screen):
             popup = Popup(title="Error",  content=Label(text=self.wrong_name_msg),
                       size_hint=(0.35, 0.25))
             popup.open()
+            self.txt.text = ""
         else:
             self.create_subject_directory(self.txt.text)
 
