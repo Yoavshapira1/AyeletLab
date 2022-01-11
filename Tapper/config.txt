@@ -1,0 +1,12 @@
+001
+60
+
+// USAGE: 
+// To sun the code, copy this into the command line and hit enter:
+
+C:\Users\yoavsha\Desktop\Tapper_Histograms\venv\Scripts\activate.bat
+python C:\Users\yoavsha\Desktop\Tapper_Histograms\main.py
+
+// Parameters:
+// first line is subject name, next line is the interval time in seconds
+// You can exit the window any time by pressing "escape", but in this case the file won't be saved
