@@ -43,5 +43,5 @@ def plot_data(filename : str) -> None:
 
 
 if __name__ == "__main__":
-    demo_data_filename = r'C:\Users\yoavsha\Desktop\LSL\Recordings\sub-P001\ses-S001\eeg\sub-P001_ses-S001_task-Default_run-001_eeg.xdf'
+    demo_data_filename = r'C:\Users\yoavsha\Desktop\LSL\Tapper\yoav_0\Motion.csv'
     plot_data(demo_data_filename)

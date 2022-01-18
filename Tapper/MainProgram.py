@@ -2,7 +2,6 @@ import csv
 import re
 import os
 import time
-
 from kivy._clock import ClockEvent
 from kivy.app import App
 from kivy.clock import Clock
@@ -14,6 +13,8 @@ from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
+
+# TODO: subject name doesn't appear
 
 subject = ""
 
@@ -126,7 +127,7 @@ class Tapper(Widget):
 
     def on_touch_down(self, touch):
         self.tapNum += 1
-        self.writer.writerow([self.name, self.tapNum, time.time() * 100000])
+        self.writer.writerow([self.name, self.tapNum, time.time() * 1000])
 
     def destroy(self):
         self.file.close()
@@ -144,7 +145,7 @@ class FreeMotion(Widget):
         self.file = open(os.path.curdir + '\%s\%s.csv' % (subject, self.file_name), 'w', newline='')
         self.writer = csv.writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp'])
-        self.event = Clock.schedule_interval(self.write, 0.01)
+        self.event = Clock.schedule_interval(self.write, 0.001)
 
     def on_touch_down(self, touch):
         self.tapNum += 1
@@ -152,9 +153,9 @@ class FreeMotion(Widget):
 
     def write(self, *args):
         if self.touch:
-            self.writer.writerow([self.name, self.tapNum, self.touch.sx, self.touch.sy, time.time() * 100000])
+            self.writer.writerow([self.name, self.tapNum, self.touch.sx, self.touch.sy, time.time() * 1000])
         else:
-            self.writer.writerow([self.name, -1, -1, -1, time.time() * 100000])
+            self.writer.writerow([self.name, -1, -1, -1, time.time() * 1000])
 
     def on_touch_up(self, touch):
         self.touch = None
