@@ -117,7 +117,7 @@ class Tapper(Widget):
         self.writer.writerow([self.name, self.touch, time.time() * 100000])
         self.touch += 1
 
-class MyScreen(Screen):
+class AppScreen(Screen):
 
     def __init__(self, sm, time, file_name, writing_app, instructions, **kwargs):
         super().__init__(**kwargs)
@@ -155,25 +155,13 @@ class MyScreen(Screen):
     def to_menu(self, *args):
         self.screen_manager.current = MENU
 
-class MotionScreen(Screen):
-    def __init__(self, sm, **kwargs):
-        super().__init__(**kwargs)
-        self.screen_manager = sm
-
-        self.menu_btn = Button(text="This is a Motion. Press to back to menu", on_press=self.to_menu)
-        self.add_widget(self.menu_btn)
-
-    def to_menu(self, *args):
-        self.screen_manager.current = MENU
-
-
 class MyApp(App):
     def build(self):
         screen_manager = ScreenManager()
         screen_manager.add_widget(EnterSubjectName(name=ENTER_NAME, sm=screen_manager))
         screen_manager.add_widget(MenuScreen(name=MENU, sm=screen_manager))
-        screen_manager.add_widget(MyScreen(name=TAPPER, sm=screen_manager, time=time_for_tapping, file_name=TAPPER, writing_app=Tapper, instructions=TAPPER_inst))
-        screen_manager.add_widget(MyScreen(name=FREE_MOTION, sm=screen_manager, time=time_for_free_motion, file_name=FREE_MOTION, writing_app=Motion, instructions=FREE_MOTION_inst))
+        screen_manager.add_widget(AppScreen(name=TAPPER, sm=screen_manager, time=time_for_tapping, file_name=TAPPER, writing_app=Tapper, instructions=TAPPER_inst))
+        screen_manager.add_widget(AppScreen(name=FREE_MOTION, sm=screen_manager, time=time_for_free_motion, file_name=FREE_MOTION, writing_app=Motion, instructions=FREE_MOTION_inst))
         return screen_manager
 
 if __name__ == "__main__":
