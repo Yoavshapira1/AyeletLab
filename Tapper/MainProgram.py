@@ -2,6 +2,8 @@ import csv
 import re
 import os
 import time
+
+from kivy._clock import ClockEvent
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.uix.screenmanager import ScreenManager, Screen
@@ -14,14 +16,19 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
 
 subject = ""
-time_for_tapping = 5
+
 MENU = "Menu"
 ENTER_NAME = "Name"
 TAPPER = "Tapper"
 FREE_MOTION = "Motion"
 
+time_for_tapping = 5
 TAPPER_inst =  "In the next session you will need to tap the screen in a constant frequency, as much as you can." \
                "\nThe session will last for %d seconds. \nTap on the screen to start the session." % time_for_tapping
+
+time_for_free_motion = 5
+FREE_MOTION_inst =  "In the next session you will need to tap the screen in a constant frequency, as much as you can." \
+               "\nThe session will last for %d seconds. \nTap on the screen to start the session." % time_for_free_motion
 
 
 class EnterSubjectNameLayOut(BoxLayout):
@@ -106,25 +113,63 @@ class MenuScreen(Screen):
 
 class Tapper(Widget):
 
-    def __init__(self, name, file, **kwargs):
+    def __init__(self, name, file_name, **kwargs):
         super().__init__(**kwargs)
         self.name = name
-        self.writer = csv.writer(file)
+        self.file_name = file_name
+        self.tapNum = 0
+
+    def start(self):
+        self.file = open(os.path.curdir + '\%s\%s.csv' % (subject, self.file_name), 'w', newline='')
+        self.writer = csv.writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'natRhythmTap'])
-        self.touch = 1
 
     def on_touch_down(self, touch):
-        self.writer.writerow([self.name, self.touch, time.time() * 100000])
-        self.touch += 1
+        self.tapNum += 1
+        self.writer.writerow([self.name, self.tapNum, time.time() * 100000])
 
-class AppScreen(Screen):
+    def destroy(self):
+        self.file.close()
 
-    def __init__(self, sm, time, file_name, writing_app, instructions, **kwargs):
+class FreeMotion(Widget):
+
+    def __init__(self, name, file_name, **kwargs):
+        super().__init__(**kwargs)
+        self.name = name
+        self.file_name = file_name
+        self.tapNum = 0
+        self.touch = None
+
+    def start(self):
+        self.file = open(os.path.curdir + '\%s\%s.csv' % (subject, self.file_name), 'w', newline='')
+        self.writer = csv.writer(self.file)
+        self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp'])
+        self.event = Clock.schedule_interval(self.write, 0.01)
+
+    def on_touch_down(self, touch):
+        self.tapNum += 1
+        self.touch = touch
+
+    def write(self, *args):
+        if self.touch:
+            self.writer.writerow([self.name, self.tapNum, self.touch.sx, self.touch.sy, time.time() * 100000])
+        else:
+            self.writer.writerow([self.name, -1, -1, -1, time.time() * 100000])
+
+    def on_touch_up(self, touch):
+        self.touch = None
+
+    def destroy(self, *args):
+        ClockEvent.cancel(self.event)
+        self.file.close()
+
+class RecorderScreen(Screen):
+
+    def __init__(self, sm, time, file_name, recorder, instructions, **kwargs):
         super().__init__(**kwargs)
         self.screen_manager = sm
         self.time = time
-        self.file_name = file_name
-        self.app = writing_app
+        self.rec = recorder(subject, file_name)
         self.instructions = instructions
         self.welcome()
 
@@ -136,13 +181,13 @@ class AppScreen(Screen):
     def program(self, *args):
         """ run the current program """
         self.clear_widgets()
-        self.file = open(os.path.curdir + '\%s\%s' % (subject, self.file_name), 'w', newline='')
-        self.add_widget(self.app(subject, self.file))
+        self.add_widget(self.rec)
+        self.rec.start()
         Clock.schedule_once(self.end, self.time)
 
     def end(self, *args):
         """ presents a message about ending the session and back to Menu """
-        self.file.close()
+        self.rec.destroy()
         self.clear_widgets()
         end = Label(text="Sessions ended!")
         self.add_widget(end)
@@ -160,12 +205,14 @@ class MyApp(App):
         screen_manager = ScreenManager()
         screen_manager.add_widget(EnterSubjectName(name=ENTER_NAME, sm=screen_manager))
         screen_manager.add_widget(MenuScreen(name=MENU, sm=screen_manager))
-        screen_manager.add_widget(AppScreen(name=TAPPER, sm=screen_manager, time=time_for_tapping, file_name=TAPPER, writing_app=Tapper, instructions=TAPPER_inst))
-        screen_manager.add_widget(AppScreen(name=FREE_MOTION, sm=screen_manager, time=time_for_free_motion, file_name=FREE_MOTION, writing_app=Motion, instructions=FREE_MOTION_inst))
+        screen_manager.add_widget(RecorderScreen(name=TAPPER, sm=screen_manager, time=time_for_tapping, file_name=TAPPER, recorder=Tapper, instructions=TAPPER_inst))
+        screen_manager.add_widget(RecorderScreen(name=FREE_MOTION, sm=screen_manager, time=time_for_free_motion, file_name=FREE_MOTION, recorder=FreeMotion, instructions=FREE_MOTION_inst))
         return screen_manager
 
 if __name__ == "__main__":
     Window.exit_on_escape = True
+    Window.fullscreen = False
+    MyApp().run()
     # Run the app - results in creating new directory
     try:
         MyApp().run()
