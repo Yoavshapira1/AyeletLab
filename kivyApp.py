@@ -24,7 +24,7 @@ PRINT_DATA = False
 MOUSE_DEV_MODE = True
 ######################## END developing section #############################
 
-# Determines how many different touch detections can be realized by the Max machine as different channels
+# Determines how many different touch detections can be realized by the MaxPatches machine as different channels
 CHANNELS = 1
 # Scale of the time series
 TIME_SERIES_DT = 0.01
