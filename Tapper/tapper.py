@@ -14,6 +14,9 @@ subject_id = ""
 interval = 60
 dir = os.getcwd()
 
+
+
+
 # read the parameters: Subject & Time
 with open(dir+r'\config.txt', 'r') as con:
     subject_id = con.readline().strip()
