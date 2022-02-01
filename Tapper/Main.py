@@ -13,62 +13,98 @@ from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
+from  kivy.uix.gridlayout import *
 
-# TODO: subject name doesn't appear
-
-subject = ""
+# python list are accessible to use and change at any time
+# that is why some of the variable are as lists
+# these to be change in the WelcomeScreen and used in Recorders objects, which write the files
+subject = [""]
 
 MENU = "Menu"
 ENTER_NAME = "Name"
 TAPPER = "Tapper"
 FREE_MOTION = "Motion"
 
-time_for_tapping = 5
-TAPPER_inst =  "In the next session you will need to tap the screen in a constant frequency, as much as you can." \
-               "\nThe session will last for %d seconds. \nTap on the screen to start the session." % time_for_tapping
+time_for_tapping = ["60"]
+TAPPER_inst =  "In the next session you will need to tap the screen in a constant frequency, as much as you can. " \
+                "\nTap on the screen to start the session."
 
-time_for_free_motion = 5
-FREE_MOTION_inst =  "In the next session you will need to tap the screen in a constant frequency, as much as you can." \
-               "\nThe session will last for %d seconds. \nTap on the screen to start the session." % time_for_free_motion
+time_for_free_motion = ["10"]
+FREE_MOTION_inst =  "In the next session you will need to move freely on the screen." \
+               "\nTap on the screen to start the session."
 
+reg = "^[1-9]\d*$"
+tapper_timer_err_msg = '"Value must be a positive integer'
+tapper_timer_do_msg = "Enter a positive integer for the Tapper interval.\nDefault is %s" % time_for_tapping[0]
 
-class EnterSubjectNameLayOut(BoxLayout):
+motion_timer_err_msg = '"Value must be a positive integer'
+motion_timer_do_msg = "Enter a positive integer for the Motion interval.\nDefault is %s" % time_for_free_motion[0]
 
-    wrong_name_msg = '"Invalid name!"\nName should contain only\nletters, digits, and the characters:\n _ ,  - ,  . ,  \''
-    name_reg = re.compile("^[\w\-. ]+$")
+class EnterText(BoxLayout):
 
-    def __init__(self, sm, **kwargs):
+    def __init__(self, sm, size_hint_y, do_msg, err_msg, regex, value_to_change, **kwargs):
         super().__init__(**kwargs)
         self.screen_manager = sm
         self.orientation='horizontal'
-        self.spacing=20
+        self.msg = do_msg
+        self.err_msg = err_msg
+        self.re = re.compile(regex)
+        self.value_to_change = value_to_change          # this is a list contains 1 element
 
-        self.txt = TextInput(hint_text='Enter a subject name', size_hint=(.8, .1))
+        self.txt = TextInput(hint_text=self.msg, size_hint=(.8, size_hint_y))
         self.add_widget(self.txt)
 
-        self.btn = Button(text='Enter', on_press=self.enter_subject_name, size_hint=(.2, .1))
+        self.btn = Button(text='Enter', on_press=self.change_value, size_hint=(.2, size_hint_y))
         self.add_widget(self.btn)
 
-    def enter_subject_name(self, instance):
-        if not self.name_reg.match(self.txt.text):
-            popup = Popup(title="Error",  content=Label(text=self.wrong_name_msg),
+    def change_value(self, instance):
+        if not self.re.match(self.txt.text):
+            popup = Popup(title="Error",  content=Label(text=self.err_msg),
                       size_hint=(0.35, 0.25))
             popup.open()
             self.txt.text = ""
         else:
-            self.create_subject_directory(self.txt.text)
+            self.value_to_change[0] = self.txt.text
 
-    def create_subject_directory(self, subject_name):
+
+class EnterName(EnterText):
+
+    name_err_msg = '"Invalid name!"\nName should contain only\nletters, digits, and the characters:\n _ ,  - ,  . ,  \''
+    name_do_msg = "enter a name"
+    name_regex = "^[\w\-. ]+$"
+
+    def __init__(self, **kwargs):
+        super().__init__(do_msg=self.name_do_msg, err_msg=self.name_err_msg, regex=self.name_regex, **kwargs)
+
+    def change_value(self, instance):
+        if not self.re.match(self.txt.text):
+            popup = Popup(title="Error",  content=Label(text=self.err_msg),
+                      size_hint=(0.35, 0.25))
+            popup.open()
+            self.txt.text = ""
+        else:
+            self.value_to_change[0] = self.txt.text
+            self.create_subject_directory()
+
+    def create_subject_directory(self):
         i = 0
         while True:
-            if os.path.isdir(subject_name + r"_%d" % i):
+            if os.path.isdir(self.txt.text + r"_%d" % i):
                 i += 1
             else:
                 break
-        global subject
-        subject = subject_name + r"_%d" % i
-        os.mkdir(subject)
+        self.value_to_change[0] = self.txt.text + r"_%d" % i
+        os.mkdir(self.value_to_change[0])
         self.screen_manager.current = MENU
+
+class EnterInteger(EnterText):
+
+    reg = "^[1-9]\d*$"
+    err = 'Value must be a positive integer'
+    do = "Enter a timer for the %s mission interval.\nDefault is %s"
+
+    def __init__(self, task, def_value, **kwargs):
+        super().__init__(do_msg=self.do % (task, def_value), err_msg=self.err, regex=self.reg, **kwargs)
 
 class MenuLayOut(BoxLayout):
     def __init__(self, sm, **kwargs):
@@ -102,7 +138,7 @@ class EnterSubjectName(Screen):
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)
         self.screen_manager = sm
-        self.layOut = EnterSubjectNameLayOut(sm)
+        self.layOut = EnterText(sm)
         self.add_widget(self.layOut)
 
 class MenuScreen(Screen):
@@ -116,12 +152,13 @@ class Tapper(Widget):
 
     def __init__(self, name, file_name, **kwargs):
         super().__init__(**kwargs)
-        self.name = name
+        self.name = name        # this is a list in length 1
         self.file_name = file_name
         self.tapNum = 0
 
     def start(self):
-        self.file = open(os.path.curdir + '\%s\%s.csv' % (subject, self.file_name), 'w', newline='')
+        self.name = self.name[0]
+        self.file = open(os.path.curdir + '\%s\%s.csv' % (self.name, self.file_name), 'w', newline='')
         self.writer = csv.writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'natRhythmTap'])
 
@@ -136,13 +173,14 @@ class FreeMotion(Widget):
 
     def __init__(self, name, file_name, **kwargs):
         super().__init__(**kwargs)
-        self.name = name
+        self.name = name             # this is a list in length 1
         self.file_name = file_name
         self.tapNum = 0
         self.touch = None
 
     def start(self):
-        self.file = open(os.path.curdir + '\%s\%s.csv' % (subject, self.file_name), 'w', newline='')
+        self.name = self.name[0]
+        self.file = open(os.path.curdir + '\%s\%s.csv' % (self.name, self.file_name), 'w', newline='')
         self.writer = csv.writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp'])
         self.event = Clock.schedule_interval(self.write, 0.001)
@@ -181,6 +219,8 @@ class RecorderScreen(Screen):
 
     def program(self, *args):
         """ run the current program """
+        self.time = int(self.time[0])
+        print(self.time)
         self.clear_widgets()
         self.add_widget(self.rec)
         self.rec.start()
@@ -203,17 +243,37 @@ class RecorderScreen(Screen):
 
 class MyApp(App):
     def build(self):
-        screen_manager = ScreenManager()
-        screen_manager.add_widget(EnterSubjectName(name=ENTER_NAME, sm=screen_manager))
-        screen_manager.add_widget(MenuScreen(name=MENU, sm=screen_manager))
-        screen_manager.add_widget(RecorderScreen(name=TAPPER, sm=screen_manager, time=time_for_tapping, file_name=TAPPER, recorder=Tapper, instructions=TAPPER_inst))
-        screen_manager.add_widget(RecorderScreen(name=FREE_MOTION, sm=screen_manager, time=time_for_free_motion, file_name=FREE_MOTION, recorder=FreeMotion, instructions=FREE_MOTION_inst))
-        return screen_manager
+        sm = ScreenManager()
+        sm.add_widget(Screen(name='welcome'))
+        welcome_scr = sm.get_screen('welcome')
+        main_layout = GridLayout(rows=3, orientation='tb-lr')
+        setting_layout = GridLayout(rows=4, orientation='tb-lr')
+
+        setting_layout.add_widget(Label(text='Timers setting. Do not enter anything if you want the default values.'))
+        setting_layout.add_widget(EnterInteger(sm=sm, size_hint_y=1., task=TAPPER, def_value=time_for_tapping[0],
+                                               value_to_change=time_for_tapping))
+        setting_layout.add_widget(EnterInteger(sm=sm, size_hint_y=1., task=FREE_MOTION, def_value=time_for_free_motion[0],
+                                               value_to_change=time_for_free_motion))
+        setting_layout.add_widget(Label(text='Name of subject must be filled'))
+
+        main_layout.add_widget(setting_layout)
+        main_layout.add_widget(EnterName(sm=sm, size_hint_y=1., value_to_change=subject))
+
+        welcome_scr.add_widget(main_layout)
+
+
+        sm.add_widget(MenuScreen(name=MENU, sm=sm))
+        sm.add_widget(RecorderScreen(name=TAPPER, sm=sm, time=time_for_tapping, file_name=TAPPER, recorder=Tapper, instructions=TAPPER_inst))
+        sm.add_widget(RecorderScreen(name=FREE_MOTION, sm=sm, time=time_for_free_motion, file_name=FREE_MOTION, recorder=FreeMotion, instructions=FREE_MOTION_inst))
+
+        return sm
 
 if __name__ == "__main__":
     Window.exit_on_escape = True
     Window.fullscreen = False
-    MyApp().run()
+    # uncommenting this, create a directory even if it's empty
+    # MyApp().run()
+
     # Run the app - results in creating new directory
     try:
         MyApp().run()
@@ -222,5 +282,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(e)
 
-    if not os.listdir(subject):
-        os.rmdir(subject)
+    if not os.listdir(*subject):
+        os.rmdir(*subject)
