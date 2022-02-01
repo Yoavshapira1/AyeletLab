@@ -15,6 +15,8 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
 from  kivy.uix.gridlayout import *
 
+# TODO: create sub-classes for screens including the required strings
+
 # python list are accessible to use and change at any time
 # that is why some of the variable are as lists
 # these to be change in the WelcomeScreen and used in Recorders objects, which write the files
@@ -260,7 +262,6 @@ class MyApp(App):
         main_layout.add_widget(EnterName(sm=sm, size_hint_y=1., value_to_change=subject))
 
         welcome_scr.add_widget(main_layout)
-
 
         sm.add_widget(MenuScreen(name=MENU, sm=sm))
         sm.add_widget(RecorderScreen(name=TAPPER, sm=sm, time=time_for_tapping, file_name=TAPPER, recorder=Tapper, instructions=TAPPER_inst))
