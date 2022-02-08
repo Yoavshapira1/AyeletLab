@@ -1,5 +1,7 @@
 # INSTALLATION:
-1) Build an environment using the requirements.txt file.
+Just build an environment using the requirements.txt file.
+
+**If you want to use libusb (which we don't at the moment):**
 2) Access the libusb directory.
 3) Copy MS32\dll\libusb-1.0.dll to C:\Windows\SysWOW64 .
 4) Copy MS64\dll\libusb-1.0.dll to C:\Windows\System32.
@@ -7,9 +9,9 @@
 6) Copy MS32\dll\libusb-1.0.dll to #your venv#\Lib\site-packages\libusb_platform_windows\x86 
 7) Copy MS64\dll\libusb-1.0.dll to: #your venv#\Lib\site-packages\libusb_platform_windows\x64
 
-# USB collector:
-The USB collector is a utility file that deals with reading data from usb device.
-In order to access the usb device, the driver of the device must be of 'libusb'.
+# USB devices notes:
+The program ATM uses Kivy package to handle input from usb touch devices, so the _libusb_ library is not in use at all.
+**If you do want to use it**, in order to access the usb device **manually**, the driver of the device must be of 'libusb'.
 If you encounter with this error:
 *"usb.core.USBError: [Errno 5] Input/Output Error"*
 It means the device cannot be accessed for the mentioned reason. 
