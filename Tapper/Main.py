@@ -13,14 +13,13 @@ from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
-from  kivy.uix.gridlayout import *
+from kivy.uix.gridlayout import *
 
-# TODO: create sub-classes for screens including the required strings
 
 # python list are accessible to use and change at any time
 # that is why some of the variable are as lists
 # these to be change in the WelcomeScreen and used in Recorders objects, which write the files
-subject = [""]
+subject = ["/Data/"]
 
 MENU = "Menu"
 ENTER_NAME = "Name"
@@ -31,16 +30,16 @@ time_for_tapping = ["60"]
 TAPPER_inst =  "In the next session you will need to tap the screen in a constant frequency, as much as you can. " \
                 "\nTap on the screen to start the session."
 
-time_for_free_motion = ["10"]
+time_for_free_motion = ["60"]
 FREE_MOTION_inst =  "In the next session you will need to move freely on the screen." \
                "\nTap on the screen to start the session."
 
 reg = "^[1-9]\d*$"
 tapper_timer_err_msg = '"Value must be a positive integer'
-tapper_timer_do_msg = "Enter a positive integer for the Tapper interval.\nDefault is %s" % time_for_tapping[0]
+tapper_timer_do_msg = "Duration of the Tapping task trial.\nDefault is %s seconds" % time_for_tapping[0]
 
 motion_timer_err_msg = '"Value must be a positive integer'
-motion_timer_do_msg = "Enter a positive integer for the Motion interval.\nDefault is %s" % time_for_free_motion[0]
+motion_timer_do_msg = "Duration of the Motion task trial.\nDefault is %s seconds" % time_for_free_motion[0]
 
 class EnterText(BoxLayout):
 
@@ -91,12 +90,12 @@ class EnterName(EnterText):
     def create_subject_directory(self):
         i = 0
         while True:
-            if os.path.isdir(self.txt.text + r"_%d" % i):
+            if os.path.isdir("Data/" + self.txt.text + r"_%d" % i):
                 i += 1
             else:
                 break
         self.value_to_change[0] = self.txt.text + r"_%d" % i
-        os.mkdir(self.value_to_change[0])
+        os.mkdir("Data/" + self.value_to_change[0])
         self.screen_manager.current = MENU
 
 class EnterInteger(EnterText):
@@ -160,7 +159,7 @@ class Tapper(Widget):
 
     def start(self):
         self.name = self.name[0]
-        self.file = open(os.path.curdir + '\%s\%s.csv' % (self.name, self.file_name), 'w', newline='')
+        self.file = open(os.path.curdir + '\Data\%s\%s.csv' % (self.name, self.file_name), 'w', newline='')
         self.writer = csv.writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'natRhythmTap'])
 
@@ -182,7 +181,7 @@ class FreeMotion(Widget):
 
     def start(self):
         self.name = self.name[0]
-        self.file = open(os.path.curdir + '\%s\%s.csv' % (self.name, self.file_name), 'w', newline='')
+        self.file = open(os.path.curdir + '\Data\%s\%s.csv' % (self.name, self.file_name), 'w', newline='')
         self.writer = csv.writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp'])
         self.event = Clock.schedule_interval(self.write, 0.001)
@@ -222,7 +221,6 @@ class RecorderScreen(Screen):
     def program(self, *args):
         """ run the current program """
         self.time = int(self.time[0])
-        print(self.time)
         self.clear_widgets()
         self.add_widget(self.rec)
         self.rec.start()
@@ -270,18 +268,20 @@ class MyApp(App):
         return sm
 
 if __name__ == "__main__":
+    if not os.path.isdir("Data"):
+        os.mkdir("Data")
+
     Window.exit_on_escape = True
-    Window.fullscreen = False
-    # uncommenting this, create a directory even if it's empty
-    # MyApp().run()
+    Window.fullscreen = True
 
     # Run the app - results in creating new directory
     try:
         MyApp().run()
 
-    # If a file hasn't created in the directory - delete it
     except Exception as e:
         print(e)
 
-    if not os.listdir(*subject):
-        os.rmdir(*subject)
+    # If a file hasn't created in the directory - delete it
+    dir = "Data/" + subject[0]
+    if not os.listdir(dir):
+        os.rmdir(dir)

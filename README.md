@@ -37,4 +37,4 @@ https://osc4py3.readthedocs.io/en/latest/
 - first make sure you have installed the venv properly:
 	https://kivy.org/doc/stable/gettingstarted/installation.html#kivy-source-install
 - then follow this guidence:
-	https://kivy.org/doc/stable/guide/packaging-windows.html#overwrite-win-hook
+	https://kivy.org/doc/stable/guide/packaging-windows.html#packaging-a-simple-app
