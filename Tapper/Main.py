@@ -2,6 +2,7 @@ import csv
 import re
 import os
 import time
+from os import stat
 from kivy._clock import ClockEvent
 from kivy.app import App
 from kivy.clock import Clock
@@ -159,7 +160,9 @@ class Tapper(Widget):
 
     def start(self):
         self.name = self.name[0]
-        self.file = open(os.getcwd() + '\Data\%s\%s.csv' % (self.name, self.file_name), 'w', newline='')
+        path = os.getcwd() + '\Data\%s\%s.csv' % (self.name, self.file_name)
+        self.file = open(path, 'w', newline='')
+        os.chmod(path, 0o777)
         self.writer = csv.writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'natRhythmTap (in ms.)'])
 
@@ -181,7 +184,9 @@ class FreeMotion(Widget):
 
     def start(self):
         self.name = self.name[0]
-        self.file = open(os.getcwd() + '\Data\%s\%s.csv' % (self.name, self.file_name), 'w', newline='')
+        path = os.getcwd() + '\Data\%s\%s.csv' % (self.name, self.file_name)
+        self.file = open(path, 'w', newline='')
+        os.chmod(path, 0o777)
         self.writer = csv.writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp (in ms.)'])
         self.event = Clock.schedule_interval(self.write, 0.001)
@@ -203,13 +208,17 @@ class FreeMotion(Widget):
         ClockEvent.cancel(self.event)
         self.file.close()
 
-class RecorderScreen(Screen):
+class AppWrapper(Screen):
+    """
+    A wrapper for the different kinds of applications. (i.e. Tapper, FreeMotion).
+    Making a new instance of one of those should use this wrapper.
+    """
 
-    def __init__(self, sm, time, file_name, recorder, instructions, **kwargs):
+    def __init__(self, sm, time, file_name, app, instructions, **kwargs):
         super().__init__(**kwargs)
         self.screen_manager = sm
         self.time = time
-        self.rec = recorder(subject, file_name)
+        self.app = app(subject, file_name)
         self.instructions = instructions
         self.welcome()
 
@@ -222,13 +231,13 @@ class RecorderScreen(Screen):
         """ run the current program """
         self.time = int(self.time[0])
         self.clear_widgets()
-        self.add_widget(self.rec)
-        self.rec.start()
+        self.add_widget(self.app)
+        self.app.start()
         Clock.schedule_once(self.end, self.time)
 
     def end(self, *args):
         """ presents a message about ending the session and back to Menu """
-        self.rec.destroy()
+        self.app.destroy()
         self.clear_widgets()
         end = Label(text="Sessions ended!")
         self.add_widget(end)
@@ -262,8 +271,8 @@ class MyApp(App):
         welcome_scr.add_widget(main_layout)
 
         sm.add_widget(MenuScreen(name=MENU, sm=sm))
-        sm.add_widget(RecorderScreen(name=TAPPER, sm=sm, time=time_for_tapping, file_name=TAPPER, recorder=Tapper, instructions=TAPPER_inst))
-        sm.add_widget(RecorderScreen(name=FREE_MOTION, sm=sm, time=time_for_free_motion, file_name=FREE_MOTION, recorder=FreeMotion, instructions=FREE_MOTION_inst))
+        sm.add_widget(AppWrapper(name=TAPPER, sm=sm, time=time_for_tapping, file_name=TAPPER, app=Tapper, instructions=TAPPER_inst))
+        sm.add_widget(AppWrapper(name=FREE_MOTION, sm=sm, time=time_for_free_motion, file_name=FREE_MOTION, app=FreeMotion, instructions=FREE_MOTION_inst))
 
         return sm
 
