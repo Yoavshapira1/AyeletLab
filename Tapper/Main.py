@@ -161,7 +161,7 @@ class Tapper(Widget):
         self.name = self.name[0]
         self.file = open(os.path.curdir + '\Data\%s\%s.csv' % (self.name, self.file_name), 'w', newline='')
         self.writer = csv.writer(self.file)
-        self.writer.writerow(['subject', 'tapNum', 'natRhythmTap'])
+        self.writer.writerow(['subject', 'tapNum', 'natRhythmTap (in ms.)'])
 
     def on_touch_down(self, touch):
         self.tapNum += 1
@@ -183,7 +183,7 @@ class FreeMotion(Widget):
         self.name = self.name[0]
         self.file = open(os.path.curdir + '\Data\%s\%s.csv' % (self.name, self.file_name), 'w', newline='')
         self.writer = csv.writer(self.file)
-        self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp'])
+        self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp (in ms.)'])
         self.event = Clock.schedule_interval(self.write, 0.001)
 
     def on_touch_down(self, touch):
