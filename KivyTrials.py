@@ -1,31 +1,20 @@
+import csv
 import os
-
 from kivy.app import App
-from kivy.core.window import Window
-from kivy.uix.label import Label
+from kivy.uix.widget import Widget
 
 
-class Base(Label):
+class Base(Widget):
     def __init__(self, **kwargs):
         super(Base, self).__init__(**kwargs)
-        # Window.bind(on_request_close=self.exit_check, )
-        # self.counter = 0
-        # self.text = str(self.counter)
-
-    # def exit_check(self, *args):
-        # self.counter += 1
-        # if self.counter < 5:
-        #     self.text = str(self.counter)
-        #     return True  # block app's exit
-        # else:
-        #     return False  # let the app close
-        # print("chek")
-
+        path = os.getcwd() + '/file.csv'
+        with open(path, 'w+', newline='') as f:
+            csv.writer(f).writerow("row")
+        os.chmod(path, 0o777)
 
 class SampleApp(App):
     def build(self):
         return Base()
 
-
 if __name__ == "__main__":
-    pass
+    SampleApp().run()
