@@ -31,7 +31,7 @@ This guide refers to running a Kivy application through the terminal.
 1) Activate the venv you built. Type: `<dir>\venv\Scripts\activate.bat` , where *dir* is the directory of the project.
 2) Type `python *app.py*` in Windows (`python3 *app.py*` in Linux), where **app.py** refers to the python file of the application.
 
-#Packing a Kivy application:
+# Packing a Kivy application:
 1) open CMD in the target directory.
 2) activate the Kivy venv.
 3) Type `pip install --upgrade pyinstaller`.
@@ -42,7 +42,6 @@ This guide refers to running a Kivy application through the terminal.
 8) Type `python -m PyInstaller Tapper.spec`. If asked `(y/n)?`, type `y` and Enter.
 9) The executable app should appear now under the directory _dist/name_.
 
-
 # USB devices notes:
 The program ATM uses Kivy package to handle input from usb touch devices, so the _libusb_ library is not in use at all.
 **If you do want to use it**, in order to access the usb device **manually**, the driver of the device must be of 'libusb'.
@@ -52,7 +51,7 @@ It means the device cannot be accessed for the mentioned reason.
 In this case, use zadig-2.7.exe (under *Touch Utilities*) to change the driver. Link for instructions:
 https://github.com/pbatard/libwdi/wiki/Zadig
 
-#Useful links:
+# Useful links:
 ***Packing a Kivy application:***
 https://kivy.org/doc/stable/guide/packaging-windows.html#packaging-a-simple-app
 
