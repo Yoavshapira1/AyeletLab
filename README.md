@@ -13,7 +13,7 @@
       1) Type: `python -m pip install --upgrade pip setuptools virtualenv`. This installs the venv tool.
       2) Type `python -m virtualenv venv`. This creates a new venv.
       3) Make sure you are in the directory of the venv: The current line in the shell should be the path of the directory, followed by ">". If not, Type `cd <path>` where _path_ is the full absolute path of the directory. 
-      4) Now type `venv\Scripts\activate.bat`. This is activates the venv. 
+      4) Now type `venv\Scripts\activate`. Make sure that now, the word `(venv)` appears before the directory path - That means the venv is activated.
       5) Make sure you have the _**requirements.txt**_ file in the directory, and then type `pip install -r requirements.txt`. This installs the necessary modules.
 
 **If you want to use libusb *(which we don't at the moment)*:**
