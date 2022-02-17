@@ -1,5 +1,8 @@
 # INSTALLATION:
-Just build an environment using the requirements.txt file.
+1) Make sure _**python**_ and _**pip**_ are installed and are in the variables path
+2) Build an environment using the _**requirements.txt**_ file.
+3) Now you can run the app using your DAW and the virtual environment.
+However, `Kivy` is also need to be added to path variables in order to run the app from the terminal, and pack it. 
 
 **If you want to use libusb (which we don't at the moment):**
 1) Access the libusb directory.

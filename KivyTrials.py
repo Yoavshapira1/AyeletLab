@@ -6,17 +6,18 @@ from kivy.uix.label import Label
 class Base(Label):
     def __init__(self, **kwargs):
         super(Base, self).__init__(**kwargs)
-        Window.bind(on_request_close=self.exit_check, )
-        self.counter = 0
-        self.text = str(self.counter)
+        # Window.bind(on_request_close=self.exit_check, )
+        # self.counter = 0
+        # self.text = str(self.counter)
 
-    def exit_check(self, *args):
-        self.counter += 1
-        if self.counter < 5:
-            self.text = str(self.counter)
-            return True  # block app's exit
-        else:
-            return False  # let the app close
+    # def exit_check(self, *args):
+        # self.counter += 1
+        # if self.counter < 5:
+        #     self.text = str(self.counter)
+        #     return True  # block app's exit
+        # else:
+        #     return False  # let the app close
+        # print("chek")
 
 
 class SampleApp(App):
@@ -25,5 +26,9 @@ class SampleApp(App):
 
 
 if __name__ == "__main__":
+    Window.fullscreen = True
+    Window.borderless = True
+    Window.maximize()
+    Window.exit_on_escape = True
 
     SampleApp().run()

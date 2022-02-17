@@ -271,8 +271,10 @@ if __name__ == "__main__":
     if not os.path.isdir("Data"):
         os.mkdir("Data")
 
-    Window.exit_on_escape = True
     Window.fullscreen = True
+    Window.borderless = True
+    Window.maximize()
+    Window.exit_on_escape = True
 
     # Run the app - results in creating new directory
     try:
