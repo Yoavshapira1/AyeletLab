@@ -1,3 +1,5 @@
+import os
+
 from kivy.app import App
 from kivy.core.window import Window
 from kivy.uix.label import Label
@@ -26,9 +28,4 @@ class SampleApp(App):
 
 
 if __name__ == "__main__":
-    Window.fullscreen = True
-    Window.borderless = True
-    Window.maximize()
-    Window.exit_on_escape = True
-
-    SampleApp().run()
+    pass
