@@ -1,18 +1,20 @@
 # Intro:
 ...
 # Setting up:
-1) Make sure _**python3**_ and _**pip**_ are installed and are in the variables path. To check that, do the following:
+1) **Make sure _**python3**_ and _**pip**_ are installed and are in the variables path.** To check that, do the following:
    1) In CMD, type the command: `python`. This should print the current version of python that installed. If something like this appears:
       `'python' is not recognized as an internal or external command,
          operable program or batch file.`  then you must install python first.
    2) Repeat **i** but with the command `pip`.
-2) Build a Kivy virtual environment (venv):
-   1) If you are using a DAW, you can just use the _**requirements.txt**_ file while building a new venv with the DAW's wizard.
-   2) Otherwise, follow these command lines:
-      1) Install the venv tool. Type: `python -m pip install --upgrade pip setuptools virtualenv`
-      2) Create a venv. Type `python -m virtualenv venv`
-      3) Activate it. Make sure you are in the directory of the project, and then type `venv\Scripts\activate.bat` 
-      4) Install the necessary modules: Make sure you have the _**requirements.txt**_ file in the directory, and then type `pip install -r requirements.txt`
+2) **Upgrade pip.** Type `python -m pip install --upgrade pip`.
+3) **Build a Kivy virtual environment (venv):**
+   1) If you are using a DAW (l.e. PyCharm), you can just use the _**requirements.txt**_ file while building a new venv using the DAW's wizard.
+   2) Otherwise, follow these lines:
+      1) Type: `python -m pip install --upgrade pip setuptools virtualenv`. This installs the venv tool.
+      2) Type `python -m virtualenv venv`. This creates a new venv.
+      3) Make sure you are in the directory of the venv: The current line in the shell should be the path of the directory, followed by ">". If not, Type `cd <path>` where _path_ is the full absolute path of the directory. 
+      4) Now type `venv\Scripts\activate.bat`. This is activates the venv. 
+      5) Make sure you have the _**requirements.txt**_ file in the directory, and then type `pip install -r requirements.txt`. This installs the necessary modules.
 
 **If you want to use libusb *(which we don't at the moment)*:**
 1) Access the libusb directory.
@@ -37,8 +39,8 @@ This guide refers to running a Kivy application through the terminal.
 5) Make sure that a file named _name.spec_ created in the target directory.
 6) Add `from kivy_deps import sdl2, glew, angle` on the top of the _.spec_ file.
 7) Change the lines of COLLECT in the _.spec_ file, as described here in section 3: https://kivy.org/doc/stable/guide/packaging-windows.html#packaging-a-simple-app.
-8) Type `python -m PyInstaller Tapper.spec` and then `y`, if asked.
-9) The executable app should appear in the directory _'dist'_.
+8) Type `python -m PyInstaller Tapper.spec`. If asked `(y/n)?`, type `y` and Enter.
+9) The executable app should appear now under the directory _dist/name_.
 
 
 # USB devices notes:
