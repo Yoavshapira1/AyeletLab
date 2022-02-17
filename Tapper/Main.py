@@ -2,7 +2,6 @@ import csv
 import re
 import os
 import time
-from os import stat
 from kivy._clock import ClockEvent
 from kivy.app import App
 from kivy.clock import Clock
@@ -20,7 +19,7 @@ from kivy.uix.gridlayout import *
 # python list are accessible to use and change at any time
 # that is why some of the variable are as lists
 # these to be change in the WelcomeScreen and used in Recorders objects, which write the files
-subject = ["/Data/"]
+subject = [""]
 
 MENU = "Menu"
 ENTER_NAME = "Name"
@@ -161,8 +160,8 @@ class Tapper(Widget):
     def start(self):
         self.name = self.name[0]
         path = os.getcwd() + '\Data\%s\%s.csv' % (self.name, self.file_name)
-        self.file = open(path, 'w', newline='')
-        os.chmod(path, 0o777)
+        os.chmod(os.getcwd(), 0o777)
+        self.file = open(path, 'w+', newline='')
         self.writer = csv.writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'natRhythmTap (in ms.)'])
 
@@ -185,8 +184,8 @@ class FreeMotion(Widget):
     def start(self):
         self.name = self.name[0]
         path = os.getcwd() + '\Data\%s\%s.csv' % (self.name, self.file_name)
-        self.file = open(path, 'w', newline='')
-        os.chmod(path, 0o777)
+        os.chmod(os.getcwd(), 0o777)
+        self.file = open(path, 'w+', newline='')
         self.writer = csv.writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp (in ms.)'])
         self.event = Clock.schedule_interval(self.write, 0.001)
