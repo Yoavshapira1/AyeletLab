@@ -268,9 +268,13 @@ class MyApp(App):
         return sm
 
 if __name__ == "__main__":
+
+    # Create a directory where the results will be saved in
     if not os.path.isdir("Data"):
         os.mkdir("Data")
 
+    # Avoiding the user from accidentally close the app
+    # App closes ONLY if <escape> is pressed
     Window.fullscreen = True
     Window.borderless = True
     Window.maximize()
