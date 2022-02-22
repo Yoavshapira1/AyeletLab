@@ -163,11 +163,11 @@ class BetaInlet(object):
         chans_xml = stream_xml.child("channels")
         chan_xml_list = []
         ch = chans_xml.child("channel")
-        while ch.name() == "channel":
+        while ch.dir() == "channel":
             chan_xml_list.append(ch)
             ch = ch.next_sibling("channel")
         self.channel_names = [ch_xml.child_value("label") for ch_xml in chan_xml_list]
-        print("Reading from inlet named {} with channels {} sending data at {} Hz".format(stream_info.name(),
+        print("Reading from inlet named {} with channels {} sending data at {} Hz".format(stream_info.dir(),
                                                                                           self.channel_names,
                                                                                           stream_Fs))
 
@@ -271,11 +271,11 @@ class MarkerInlet(object):
         chans_xml = stream_xml.child("channels")
         chan_xml_list = []
         ch = chans_xml.child("channel")
-        while ch.name() == "channel":
+        while ch.dir() == "channel":
             chan_xml_list.append(ch)
             ch = ch.next_sibling("channel")
         stream_ch_names = [ch_xml.child_value("label") for ch_xml in chan_xml_list]
-        print("Reading from inlet named {} with channels {}".format(stream_info.name(), stream_ch_names))
+        print("Reading from inlet named {} with channels {}".format(stream_info.dir(), stream_ch_names))
 
     def update(self):
         marker_samples, marker_timestamps = self.inlet.pull_chunk(timeout=0.0)

@@ -13,7 +13,7 @@ def main():
     # create a new inlet to read from the stream
     inlet = StreamInlet(info)
 
-    print('Connected to outlet ' + info.name() + '@' + info.hostname())
+    print('Connected to outlet ' + info.dir() + '@' + info.hostname())
     while True:
         offset = inlet.time_correction()
         print('Offset: ' + str(offset))

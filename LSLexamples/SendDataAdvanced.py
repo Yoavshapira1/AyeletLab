@@ -59,7 +59,7 @@ def main(name='LSLExampleAmp', stream_type='EEG', srate=100):
         # It's unnecessary to check the info when the stream was created in the same scope; just use info.
         # Use this code only as a sanity check if you think something when wrong during stream creation.
         check_info = outlet.get_info()
-        assert check_info.name() == name
+        assert check_info.dir() == name
         assert check_info.type() == stream_type
         assert check_info.channel_count() == len(channel_names)
         assert check_info.channel_format() == pylsl.cf_float32

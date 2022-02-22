@@ -150,15 +150,20 @@ class MenuScreen(Screen):
 class TapperTask(Widget):
     """Represents the Tapping task, and used by the 'RecorderScreen' as a delegation"""
 
-    def __init__(self, name, file_name, **kwargs):
+    counter = 0
+
+    def __init__(self, dir, **kwargs):
+        """
+        :param dir: <List> contains a single String represents the name of the directory to save the file in
+        Hence, the directory should be access by: 'self.dir[0]'
+        """
         super().__init__(**kwargs)
-        self.name = name        # this is a list in length 1
-        self.file_name = file_name
-        self.tapNum = 0
+        self.dir = dir        # this is a list in length 1
 
     def start(self):
-        self.name = self.name[0]
-        path = os.getcwd() + '\Data\%s\%s.csv' % (self.name, self.file_name)
+        self.counter += 1
+        self.tapNum = 0
+        path = os.getcwd() + '\Data\%s\%s.csv' % (self.dir[0], TAPPER + "_" + str(self.counter))
         os.chmod(os.getcwd(), 0o777)
         self.file = open(path, 'w+', newline='')
         self.writer = csv.writer(self.file)
@@ -166,7 +171,7 @@ class TapperTask(Widget):
 
     def on_touch_down(self, touch):
         self.tapNum += 1
-        self.writer.writerow([self.name, self.tapNum, time.time() * 1000])
+        self.writer.writerow([self.dir[0], self.tapNum, time.time() * 1000])
 
     def destroy(self):
         self.file.close()
@@ -174,16 +179,21 @@ class TapperTask(Widget):
 class FreeMotionTask(Widget):
     """Represents the Free motion task, and used by the 'RecorderScreen' as a delegation"""
 
-    def __init__(self, name, file_name, **kwargs):
+    counter = 0
+
+    def __init__(self, dir, **kwargs):
+        """
+        :param dir: <List> contains a single String represents the name of the directory to save the file in
+        Hence, the directory should be access by: 'self.dir[0]'
+        """
         super().__init__(**kwargs)
-        self.name = name             # this is a list in length 1
-        self.file_name = file_name
+        self.dir = dir             # this is a list in length 1
         self.tapNum = 0
         self.touch = None
 
     def start(self):
-        self.name = self.name[0]
-        path = os.getcwd() + '\Data\%s\%s.csv' % (self.name, self.file_name)
+        self.counter += 1
+        path = os.getcwd() + '\Data\%s\%s.csv' % (self.dir[0], FREE_MOTION + "_" + str(self.counter))
         os.chmod(os.getcwd(), 0o777)
         self.file = open(path, 'w+', newline='')
         self.writer = csv.writer(self.file)
@@ -196,9 +206,9 @@ class FreeMotionTask(Widget):
 
     def write(self, *args):
         if self.touch:
-            self.writer.writerow([self.name, self.tapNum, self.touch.sx, self.touch.sy, time.time() * 1000])
+            self.writer.writerow([self.dir[0], self.tapNum, self.touch.sx, self.touch.sy, time.time() * 1000])
         else:
-            self.writer.writerow([self.name, -1, -1, -1, time.time() * 1000])
+            self.writer.writerow([self.dir[0], -1, -1, -1, time.time() * 1000])
 
     def on_touch_up(self, touch):
         self.touch = None
@@ -213,10 +223,10 @@ class TaskScreenWrapper(Screen):
     Making a new instance of one of those should use this wrapper.
     """
 
-    def __init__(self, sm, time, file_name, task, instructions, **kwargs):
+    def __init__(self, sm, time, task, instructions, **kwargs):
         """
         :param sm: <Screen Manager>
-        :param time: <Integer> time, in seconds, for the task to run
+        :param time: <List> contains a single integer - time, in seconds, for the task to run
         :param file_name: <String> the name of the file which is created by the task
         :param task: <Widget> this is the task that run in the background, and record the touch inputs
         :param instructions: <String> instructions for the user
@@ -224,13 +234,15 @@ class TaskScreenWrapper(Screen):
         super().__init__(**kwargs)
         self.screen_manager = sm
         self.time = time
-        self.task = task(subject, file_name)
+        self.task = task(dir=subject)
         self.instructions = instructions
-        self.welcome()
+        # self.welcome()
 
     def on_enter(self):
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
+        self.clear_widgets()
+        self.welcome()
 
     def welcome(self, *args):
         """ presents a welcome screen, including instructions """
@@ -239,11 +251,11 @@ class TaskScreenWrapper(Screen):
 
     def program(self, *args):
         """ run the current program """
-        self.time = int(self.time[0])
+        interval = int(self.time[0])
         self.clear_widgets()
         self.add_widget(self.task)
         self.task.start()
-        Clock.schedule_once(self.end, self.time)
+        Clock.schedule_once(self.end, interval)
 
     def end(self, *args):
         """ presents a message about ending the session and back to Menu """
@@ -280,9 +292,8 @@ class MyApp(App):
         welcome_scr.add_widget(main_layout)
 
         sm.add_widget(MenuScreen(name=MENU, sm=sm))
-        sm.add_widget(TaskScreenWrapper(name=TAPPER, sm=sm, time=time_for_tapping, file_name=TAPPER, task=TapperTask, instructions=TAPPER_inst))
-        sm.add_widget(TaskScreenWrapper(name=FREE_MOTION, sm=sm, time=time_for_free_motion, file_name=FREE_MOTION, task=FreeMotionTask, instructions=FREE_MOTION_inst))
-
+        sm.add_widget(TaskScreenWrapper(name=TAPPER, sm=sm, time=time_for_tapping, task=TapperTask, instructions=TAPPER_inst))
+        sm.add_widget(TaskScreenWrapper(name=FREE_MOTION, sm=sm, time=time_for_free_motion, task=FreeMotionTask, instructions=FREE_MOTION_inst))
         return sm
 
 if __name__ == "__main__":
@@ -293,13 +304,13 @@ if __name__ == "__main__":
 
     # Avoiding the user from accidentally close the app
     # App closes ONLY if <escape> is pressed
-    Window.fullscreen = True
-    Window.borderless = True
-    Window.maximize()
+    # Window.fullscreen = True
+    # Window.borderless = True
+    # Window.maximize()
     Window.exit_on_escape = True
 
     # uncomment this to print Exception to error console
-    # MyApp().run()
+    MyApp().run()
 
     # Run the app - results in creating new directory
     try:

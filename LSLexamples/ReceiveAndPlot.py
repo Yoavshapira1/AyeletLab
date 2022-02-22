@@ -127,15 +127,15 @@ def main():
         if info.type() == 'Markers':
             if info.nominal_srate() != pylsl.IRREGULAR_RATE \
                     or info.channel_format() != pylsl.cf_string:
-                print('Invalid marker stream ' + info.name())
-            print('Adding marker inlet: ' + info.name())
+                print('Invalid marker stream ' + info.dir())
+            print('Adding marker inlet: ' + info.dir())
             inlets.append(MarkerInlet(info))
         elif info.nominal_srate() != pylsl.IRREGULAR_RATE \
                 and info.channel_format() != pylsl.cf_string:
-            print('Adding data inlet: ' + info.name())
+            print('Adding data inlet: ' + info.dir())
             inlets.append(DataInlet(info, plt))
         else:
-            print('Don\'t know what to do with stream ' + info.name())
+            print('Don\'t know what to do with stream ' + info.dir())
 
     def scroll():
         """Move the view so the data appears to scroll"""
