@@ -308,7 +308,9 @@ if __name__ == "__main__":
     Window.maximize()
     Window.exit_on_escape = True
 
-    MyApp().run()
+    # uncomment this to print Exception to error console
+    # MyApp().run()
+
     # Run the app - results in creating new directory
     try:
         MyApp().run()
