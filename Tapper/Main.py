@@ -118,44 +118,36 @@ class EnterInteger(EnterText):
     def __init__(self, task, def_value, **kwargs):
         super().__init__(do_msg=self.do % (task, def_value), err_msg=self.err, regex=self.reg, **kwargs)
 
-class MenuLayOut(BoxLayout):
-    """The main menu layout contains buttons in vertical order, one for each task screen"""
+class MenuScreen(Screen):
+    """The main menu screen"""
+
+    instructions = "For [b][i]Tapper[/i][/b] task: press '1'\n" \
+                   "For [b][i]Free Motion[/i][/b] task: press '2'\n" \
+                   "For [b][i]Circles[/i][/b]: press '3'\n\n\n\n\n" \
+                   "For exit anytime, press 'Escape'"
 
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)
         self.screen_manager = sm
-        self.orientation='vertical'
-        self.spacing=20
+        self.add_widget(Label(text=self.instructions, font_size=26, markup=True))
 
-        self.tapper_btn = Button(text="Tapper", on_press=self.to_tapper)
-        self.add_widget(self.tapper_btn)
+    def on_enter(self):
+        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+        self._keyboard.bind(on_key_down=self._on_keyboard_down)
 
-        self.motion_btn = Button(text="Free Motions", on_press=self.to_motion)
-        self.add_widget(self.motion_btn)
+    def _keyboard_closed(self):
+        self._keyboard.unbind(on_key_down=self._on_keyboard_down)
 
-        self.exit_btn = Button(text="Exit", on_press=self.exit)
-        self.add_widget(self.exit_btn)
+    def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
+        if keycode[1] == '1':
+            self._keyboard_closed()
+            self.screen_manager.current = TAPPER
 
-    def to_tapper(self, *args):
-        self.screen_manager.current = TAPPER
+        if keycode[1] == '2':
+            self._keyboard_closed()
+            self.screen_manager.current = FREE_MOTION
 
-    def to_motion(self, *args):
-        self.screen_manager.current = FREE_MOTION
-
-    def exit(self, *args):
-        w = self.screen_manager.get_root_window()
-        App.get_running_app().stop()
-        w.close()
-
-class MenuScreen(Screen):
-    """The main menu screen"""
-
-    def __init__(self, sm, **kwargs):
-        super().__init__(**kwargs)
-        self.menu = MenuLayOut(sm)
-        self.add_widget(self.menu)
-
-class Tapper(Widget):
+class TapperTask(Widget):
     """Represents the Tapping task, and used by the 'RecorderScreen' as a delegation"""
 
     def __init__(self, name, file_name, **kwargs):
@@ -179,7 +171,7 @@ class Tapper(Widget):
     def destroy(self):
         self.file.close()
 
-class FreeMotion(Widget):
+class FreeMotionTask(Widget):
     """Represents the Free motion task, and used by the 'RecorderScreen' as a delegation"""
 
     def __init__(self, name, file_name, **kwargs):
@@ -215,9 +207,9 @@ class FreeMotion(Widget):
         ClockEvent.cancel(self.event)
         self.file.close()
 
-class AppWrapper(Screen):
+class TaskScreenWrapper(Screen):
     """
-    A wrapper for the different kinds of applications. (i.e. Tapper, FreeMotion).
+    A wrapper for the different kinds of tasks. (i.e. Tapper, FreeMotion).
     Making a new instance of one of those should use this wrapper.
     """
 
@@ -235,6 +227,10 @@ class AppWrapper(Screen):
         self.task = task(subject, file_name)
         self.instructions = instructions
         self.welcome()
+
+    def on_enter(self):
+        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+        self._keyboard.bind(on_key_down=self._on_keyboard_down)
 
     def welcome(self, *args):
         """ presents a welcome screen, including instructions """
@@ -255,19 +251,13 @@ class AppWrapper(Screen):
         self.clear_widgets()
         end = Label(text="Sessions ended! Press Enter")
         self.add_widget(end)
-        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
-        self._keyboard.bind(on_key_down=self._on_keyboard_down)
 
     def _keyboard_closed(self):
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
-        self._keyboard = None
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         if keycode[1] == 'enter':
-            self.change()
-
-    def change(self):
-        self.screen_manager.current = MENU
+            self.screen_manager.current = MENU
 
 class MyApp(App):
     def build(self):
@@ -290,8 +280,8 @@ class MyApp(App):
         welcome_scr.add_widget(main_layout)
 
         sm.add_widget(MenuScreen(name=MENU, sm=sm))
-        sm.add_widget(AppWrapper(name=TAPPER, sm=sm, time=time_for_tapping, file_name=TAPPER, task=Tapper, instructions=TAPPER_inst))
-        sm.add_widget(AppWrapper(name=FREE_MOTION, sm=sm, time=time_for_free_motion, file_name=FREE_MOTION, task=FreeMotion, instructions=FREE_MOTION_inst))
+        sm.add_widget(TaskScreenWrapper(name=TAPPER, sm=sm, time=time_for_tapping, file_name=TAPPER, task=TapperTask, instructions=TAPPER_inst))
+        sm.add_widget(TaskScreenWrapper(name=FREE_MOTION, sm=sm, time=time_for_free_motion, file_name=FREE_MOTION, task=FreeMotionTask, instructions=FREE_MOTION_inst))
 
         return sm
 
