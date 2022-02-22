@@ -15,6 +15,8 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
 from kivy.uix.gridlayout import *
 
+# TODO: avoiding any input out of the window, when the task is active
+# TODO: avoiding pressing Enter when the task is active
 
 # python list are accessible to use and change at any time
 # that is why some of the variable are as lists
@@ -304,9 +306,9 @@ if __name__ == "__main__":
 
     # Avoiding the user from accidentally close the app
     # App closes ONLY if <escape> is pressed
-    # Window.fullscreen = True
-    # Window.borderless = True
-    # Window.maximize()
+    Window.fullscreen = True
+    Window.borderless = True
+    Window.maximize()
     Window.exit_on_escape = True
 
     # uncomment this to print Exception to error console
