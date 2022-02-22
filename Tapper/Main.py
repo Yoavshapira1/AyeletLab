@@ -1,7 +1,8 @@
-import csv
-import re
-import os
-import time
+from csv import writer
+from re import compile
+from os import rmdir, listdir, mkdir, getcwd, chmod
+from os.path import isdir
+from time import time
 from kivy._clock import ClockEvent
 from kivy.app import App
 from kivy.clock import Clock
@@ -13,7 +14,7 @@ from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
-from kivy.uix.gridlayout import *
+from kivy.uix.gridlayout import GridLayout
 
 # TODO: avoiding any input out of the window, when the task is active
 
@@ -64,7 +65,7 @@ class EnterText(BoxLayout):
         self.orientation='horizontal'
         self.msg = do_msg
         self.err_msg = err_msg
-        self.re = re.compile(regex)
+        self.re = compile(regex)
         self.value_to_change = value_to_change          # this is a list contains 1 element
 
         self.txt = TextInput(hint_text=self.msg, size_hint=(.8, 1.))
@@ -106,12 +107,12 @@ class EnterName(EnterText):
     def create_subject_directory(self):
         i = 0
         while True:
-            if os.path.isdir("Data/" + self.txt.text + r"_%d" % i):
+            if isdir("Data/" + self.txt.text + r"_%d" % i):
                 i += 1
             else:
                 break
         self.value_to_change[0] = self.txt.text + r"_%d" % i
-        os.mkdir("Data/" + self.value_to_change[0])
+        mkdir("Data/" + self.value_to_change[0])
         self.screen_manager.current = MENU
 
 class EnterInteger(EnterText):
@@ -173,15 +174,15 @@ class TapperTask(Widget):
     def start(self):
         self.counter += 1
         self.tapNum = 0
-        path = os.getcwd() + '\Data\%s\%s.csv' % (self.dir[0], TAPPER + "_" + str(self.counter))
-        os.chmod(os.getcwd(), 0o777)
+        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], TAPPER + "_" + str(self.counter))
+        chmod(getcwd(), 0o777)
         self.file = open(path, 'w+', newline='')
-        self.writer = csv.writer(self.file)
+        self.writer = writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'natRhythmTap (in ms.)'])
 
     def on_touch_down(self, touch):
         self.tapNum += 1
-        self.writer.writerow([self.dir[0], self.tapNum, time.time() * 1000])
+        self.writer.writerow([self.dir[0], self.tapNum, time() * 1000])
 
     def destroy(self):
         self.file.close()
@@ -203,10 +204,10 @@ class FreeMotionTask(Widget):
 
     def start(self):
         self.counter += 1
-        path = os.getcwd() + '\Data\%s\%s.csv' % (self.dir[0], FREE_MOTION + "_" + str(self.counter))
-        os.chmod(os.getcwd(), 0o777)
+        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], FREE_MOTION + "_" + str(self.counter))
+        chmod(getcwd(), 0o777)
         self.file = open(path, 'w+', newline='')
-        self.writer = csv.writer(self.file)
+        self.writer = writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp (in ms.)'])
         self.event = Clock.schedule_interval(self.write, 0.001)
 
@@ -216,9 +217,9 @@ class FreeMotionTask(Widget):
 
     def write(self, *args):
         if self.touch:
-            self.writer.writerow([self.dir[0], self.tapNum, self.touch.sx, self.touch.sy, time.time() * 1000])
+            self.writer.writerow([self.dir[0], self.tapNum, self.touch.sx, self.touch.sy, time() * 1000])
         else:
-            self.writer.writerow([self.dir[0], -1, -1, -1, time.time() * 1000])
+            self.writer.writerow([self.dir[0], -1, -1, -1, time() * 1000])
 
     def on_touch_up(self, touch):
         self.touch = None
@@ -244,10 +245,10 @@ class CirclesTask(Widget):
 
     def start(self):
         self.counter += 1
-        path = os.getcwd() + '\Data\%s\%s.csv' % (self.dir[0], CIRCLES + "_" + str(self.counter))
-        os.chmod(os.getcwd(), 0o777)
+        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], CIRCLES + "_" + str(self.counter))
+        chmod(getcwd(), 0o777)
         self.file = open(path, 'w+', newline='')
-        self.writer = csv.writer(self.file)
+        self.writer = writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp (in ms.)'])
         self.event = Clock.schedule_interval(self.write, 0.001)
 
@@ -257,9 +258,9 @@ class CirclesTask(Widget):
 
     def write(self, *args):
         if self.touch:
-            self.writer.writerow([self.dir[0], self.tapNum, self.touch.sx, self.touch.sy, time.time() * 1000])
+            self.writer.writerow([self.dir[0], self.tapNum, self.touch.sx, self.touch.sy, time() * 1000])
         else:
-            self.writer.writerow([self.dir[0], -1, -1, -1, time.time() * 1000])
+            self.writer.writerow([self.dir[0], -1, -1, -1, time() * 1000])
 
     def on_touch_up(self, touch):
         self.touch = None
@@ -354,8 +355,8 @@ class MyApp(App):
 if __name__ == "__main__":
 
     # Create a directory where the results will be saved in
-    if not os.path.isdir("Data"):
-        os.mkdir("Data")
+    if not isdir("Data"):
+        mkdir("Data")
 
     # Avoiding the user from accidentally close the app
     # App closes ONLY if <escape> is pressed
@@ -376,5 +377,5 @@ if __name__ == "__main__":
 
     # If a file hasn't created in the directory - delete it
     dir = "Data/" + subject[0]
-    if not os.listdir(dir):
-        os.rmdir(dir)
+    if not listdir(dir):
+        rmdir(dir)
