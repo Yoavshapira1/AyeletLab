@@ -42,8 +42,17 @@ motion_timer_err_msg = '"Value must be a positive integer'
 motion_timer_do_msg = "Duration of the Motion task trial.\nDefault is %s seconds" % time_for_free_motion[0]
 
 class EnterText(BoxLayout):
+    """Abstract box layout for changing one of the trial's parameters"""
 
     def __init__(self, sm, size_hint_y, do_msg, err_msg, regex, value_to_change, **kwargs):
+        """
+        :param sm: <Screen Manager>
+        :param size_hint_y: <float> Relative size on y axis
+        :param do_msg: <String> tells the user what this box does
+        :param err_msg: <String> raise the user a typo error
+        :param regex: <String> regex represents the acceptable input
+        :param value_to_change: <List> a list contain single value, which is the value to be change by the user
+        """
         super().__init__(**kwargs)
         self.screen_manager = sm
         self.orientation='horizontal'
@@ -69,6 +78,7 @@ class EnterText(BoxLayout):
 
 
 class EnterName(EnterText):
+    """Specific instance of EnterText abstraction, for changing the subject's name"""
 
     name_err_msg = '"Invalid name!"\nName should contain only\nletters, digits, and the characters:\n _ ,  - ,  . ,  \''
     name_do_msg = "enter a name"
@@ -99,6 +109,7 @@ class EnterName(EnterText):
         self.screen_manager.current = MENU
 
 class EnterInteger(EnterText):
+    """Specific instance of EnterText abstraction, for changing the integer values of the trial"""
 
     reg = "^[1-9]\d*$"
     err = 'Value must be a positive integer'
@@ -108,6 +119,8 @@ class EnterInteger(EnterText):
         super().__init__(do_msg=self.do % (task, def_value), err_msg=self.err, regex=self.reg, **kwargs)
 
 class MenuLayOut(BoxLayout):
+    """The main menu layout contains buttons in vertical order, one for each task screen"""
+
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)
         self.screen_manager = sm
@@ -134,15 +147,8 @@ class MenuLayOut(BoxLayout):
         App.get_running_app().stop()
         w.close()
 
-class EnterSubjectName(Screen):
-
-    def __init__(self, sm, **kwargs):
-        super().__init__(**kwargs)
-        self.screen_manager = sm
-        self.layOut = EnterText(sm)
-        self.add_widget(self.layOut)
-
 class MenuScreen(Screen):
+    """The main menu screen"""
 
     def __init__(self, sm, **kwargs):
         super().__init__(**kwargs)
@@ -150,6 +156,7 @@ class MenuScreen(Screen):
         self.add_widget(self.menu)
 
 class Tapper(Widget):
+    """Represents the Tapping task, and used by the 'RecorderScreen' as a delegation"""
 
     def __init__(self, name, file_name, **kwargs):
         super().__init__(**kwargs)
@@ -173,6 +180,7 @@ class Tapper(Widget):
         self.file.close()
 
 class FreeMotion(Widget):
+    """Represents the Free motion task, and used by the 'RecorderScreen' as a delegation"""
 
     def __init__(self, name, file_name, **kwargs):
         super().__init__(**kwargs)
@@ -213,11 +221,18 @@ class AppWrapper(Screen):
     Making a new instance of one of those should use this wrapper.
     """
 
-    def __init__(self, sm, time, file_name, app, instructions, **kwargs):
+    def __init__(self, sm, time, file_name, task, instructions, **kwargs):
+        """
+        :param sm: <Screen Manager>
+        :param time: <Integer> time, in seconds, for the task to run
+        :param file_name: <String> the name of the file which is created by the task
+        :param task: <Widget> this is the task that run in the background, and record the touch inputs
+        :param instructions: <String> instructions for the user
+        """
         super().__init__(**kwargs)
         self.screen_manager = sm
         self.time = time
-        self.app = app(subject, file_name)
+        self.task = task(subject, file_name)
         self.instructions = instructions
         self.welcome()
 
@@ -230,23 +245,28 @@ class AppWrapper(Screen):
         """ run the current program """
         self.time = int(self.time[0])
         self.clear_widgets()
-        self.add_widget(self.app)
-        self.app.start()
+        self.add_widget(self.task)
+        self.task.start()
         Clock.schedule_once(self.end, self.time)
 
     def end(self, *args):
         """ presents a message about ending the session and back to Menu """
-        self.app.destroy()
+        self.task.destroy()
         self.clear_widgets()
-        end = Label(text="Sessions ended!")
+        end = Label(text="Sessions ended! Press Enter")
         self.add_widget(end)
-        Clock.schedule_once(self.back_to_menu, 3)
+        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+        self._keyboard.bind(on_key_down=self._on_keyboard_down)
 
-    def back_to_menu(self, *args):
-        menu_btn = Button(text="Session ended. Click here to go back to menu", on_press=self.to_menu)
-        self.add_widget(menu_btn)
+    def _keyboard_closed(self):
+        self._keyboard.unbind(on_key_down=self._on_keyboard_down)
+        self._keyboard = None
 
-    def to_menu(self, *args):
+    def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
+        if keycode[1] == 'enter':
+            self.change()
+
+    def change(self):
         self.screen_manager.current = MENU
 
 class MyApp(App):
@@ -270,8 +290,8 @@ class MyApp(App):
         welcome_scr.add_widget(main_layout)
 
         sm.add_widget(MenuScreen(name=MENU, sm=sm))
-        sm.add_widget(AppWrapper(name=TAPPER, sm=sm, time=time_for_tapping, file_name=TAPPER, app=Tapper, instructions=TAPPER_inst))
-        sm.add_widget(AppWrapper(name=FREE_MOTION, sm=sm, time=time_for_free_motion, file_name=FREE_MOTION, app=FreeMotion, instructions=FREE_MOTION_inst))
+        sm.add_widget(AppWrapper(name=TAPPER, sm=sm, time=time_for_tapping, file_name=TAPPER, task=Tapper, instructions=TAPPER_inst))
+        sm.add_widget(AppWrapper(name=FREE_MOTION, sm=sm, time=time_for_free_motion, file_name=FREE_MOTION, task=FreeMotion, instructions=FREE_MOTION_inst))
 
         return sm
 
@@ -288,6 +308,7 @@ if __name__ == "__main__":
     Window.maximize()
     Window.exit_on_escape = True
 
+    MyApp().run()
     # Run the app - results in creating new directory
     try:
         MyApp().run()
