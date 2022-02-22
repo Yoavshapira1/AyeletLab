@@ -15,6 +15,7 @@
       3) Make sure you are in the directory of the venv: The current line in the shell should be the path of the directory, followed by ">". If not, Type `cd <path>` where _path_ is the full absolute path of the directory. 
       4) Now type `venv\Scripts\activate`. Make sure that now, the word `(venv)` appears before the directory path - That means the venv is activated.
       5) Make sure you have the _**requirements.txt**_ file in the directory, and then type `pip install -r requirements.txt`. This installs the necessary modules.
+   3) Last thing is to make sure the user can not exit the program by sliding Window's swiping menus. To do that, follow this guide, Method1: https://www.top-password.com/blog/disable-edge-swipe-gesture-in-windows-10/
 
 **If you want to use libusb *(which we don't at the moment)*:**
 1) Access the libusb directory.

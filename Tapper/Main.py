@@ -16,7 +16,6 @@ from kivy.uix.widget import Widget
 from kivy.uix.gridlayout import *
 
 # TODO: avoiding any input out of the window, when the task is active
-# TODO: avoiding pressing Enter when the task is active
 
 # python list are accessible to use and change at any time
 # that is why some of the variable are as lists
@@ -27,6 +26,7 @@ MENU = "Menu"
 ENTER_NAME = "Name"
 TAPPER = "Tapper"
 FREE_MOTION = "Motion"
+CIRCLES = "Circles"
 
 time_for_tapping = ["60"]
 TAPPER_inst =  "In the next session you will need to tap the screen in a constant frequency, as much as you can. " \
@@ -35,6 +35,10 @@ TAPPER_inst =  "In the next session you will need to tap the screen in a constan
 time_for_free_motion = ["60"]
 FREE_MOTION_inst =  "In the next session you will need to move freely on the screen." \
                "\nTap on the screen to start the session."
+
+time_for_circles = ["60"]
+CIRCLES_inst =  "In the next session you will need to draw circles. " \
+                "\nTap on the screen to start the session."
 
 reg = "^[1-9]\d*$"
 tapper_timer_err_msg = '"Value must be a positive integer'
@@ -46,7 +50,7 @@ motion_timer_do_msg = "Duration of the Motion task trial.\nDefault is %s seconds
 class EnterText(BoxLayout):
     """Abstract box layout for changing one of the trial's parameters"""
 
-    def __init__(self, sm, size_hint_y, do_msg, err_msg, regex, value_to_change, **kwargs):
+    def __init__(self, sm, do_msg, err_msg, regex, value_to_change, **kwargs):
         """
         :param sm: <Screen Manager>
         :param size_hint_y: <float> Relative size on y axis
@@ -63,10 +67,10 @@ class EnterText(BoxLayout):
         self.re = re.compile(regex)
         self.value_to_change = value_to_change          # this is a list contains 1 element
 
-        self.txt = TextInput(hint_text=self.msg, size_hint=(.8, size_hint_y))
+        self.txt = TextInput(hint_text=self.msg, size_hint=(.8, 1.))
         self.add_widget(self.txt)
 
-        self.btn = Button(text='Enter', on_press=self.change_value, size_hint=(.2, size_hint_y))
+        self.btn = Button(text='Enter', on_press=self.change_value, size_hint=(.2, 1.))
         self.add_widget(self.btn)
 
     def change_value(self, instance):
@@ -117,8 +121,8 @@ class EnterInteger(EnterText):
     err = 'Value must be a positive integer'
     do = "Enter a timer for the %s mission interval.\nDefault is %s"
 
-    def __init__(self, task, def_value, **kwargs):
-        super().__init__(do_msg=self.do % (task, def_value), err_msg=self.err, regex=self.reg, **kwargs)
+    def __init__(self, task, value_to_change, **kwargs):
+        super().__init__(do_msg=self.do % (task, value_to_change[0]), err_msg=self.err, regex=self.reg, value_to_change=value_to_change, **kwargs)
 
 class MenuScreen(Screen):
     """The main menu screen"""
@@ -148,6 +152,10 @@ class MenuScreen(Screen):
         if keycode[1] == '2':
             self._keyboard_closed()
             self.screen_manager.current = FREE_MOTION
+
+        if keycode[1] == '3':
+            self._keyboard_closed()
+            self.screen_manager.current = CIRCLES
 
 class TapperTask(Widget):
     """Represents the Tapping task, and used by the 'RecorderScreen' as a delegation"""
@@ -196,6 +204,47 @@ class FreeMotionTask(Widget):
     def start(self):
         self.counter += 1
         path = os.getcwd() + '\Data\%s\%s.csv' % (self.dir[0], FREE_MOTION + "_" + str(self.counter))
+        os.chmod(os.getcwd(), 0o777)
+        self.file = open(path, 'w+', newline='')
+        self.writer = csv.writer(self.file)
+        self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp (in ms.)'])
+        self.event = Clock.schedule_interval(self.write, 0.001)
+
+    def on_touch_down(self, touch):
+        self.tapNum += 1
+        self.touch = touch
+
+    def write(self, *args):
+        if self.touch:
+            self.writer.writerow([self.dir[0], self.tapNum, self.touch.sx, self.touch.sy, time.time() * 1000])
+        else:
+            self.writer.writerow([self.dir[0], -1, -1, -1, time.time() * 1000])
+
+    def on_touch_up(self, touch):
+        self.touch = None
+
+    def destroy(self, *args):
+        ClockEvent.cancel(self.event)
+        self.file.close()
+
+class CirclesTask(Widget):
+    """Represents the Free motion task, and used by the 'RecorderScreen' as a delegation"""
+
+    counter = 0
+
+    def __init__(self, dir, **kwargs):
+        """
+        :param dir: <List> contains a single String represents the name of the directory to save the file in
+        Hence, the directory should be access by: 'self.dir[0]'
+        """
+        super().__init__(**kwargs)
+        self.dir = dir             # this is a list in length 1
+        self.tapNum = 0
+        self.touch = None
+
+    def start(self):
+        self.counter += 1
+        path = os.getcwd() + '\Data\%s\%s.csv' % (self.dir[0], CIRCLES + "_" + str(self.counter))
         os.chmod(os.getcwd(), 0o777)
         self.file = open(path, 'w+', newline='')
         self.writer = csv.writer(self.file)
@@ -276,26 +325,30 @@ class TaskScreenWrapper(Screen):
 class MyApp(App):
     def build(self):
         sm = ScreenManager()
-        sm.add_widget(Screen(name='welcome'))
-        welcome_scr = sm.get_screen('welcome')
-        main_layout = GridLayout(rows=3, orientation='tb-lr')
-        setting_layout = GridLayout(rows=4, orientation='tb-lr')
+        sm.add_widget(Screen(name='settings'))
+        setting_scr = sm.get_screen('settings')
+        main_layout = GridLayout(rows=4, orientation='tb-lr')
+        setting_layout = GridLayout(rows=5, orientation='tb-lr')
 
+        # Timers setting
         setting_layout.add_widget(Label(text='Timers setting. Do not enter anything if you want the default values.'))
-        setting_layout.add_widget(EnterInteger(sm=sm, size_hint_y=1., task=TAPPER, def_value=time_for_tapping[0],
-                                               value_to_change=time_for_tapping))
-        setting_layout.add_widget(EnterInteger(sm=sm, size_hint_y=1., task=FREE_MOTION, def_value=time_for_free_motion[0],
-                                               value_to_change=time_for_free_motion))
+        setting_layout.add_widget(EnterInteger(sm=sm, task=TAPPER, value_to_change=time_for_tapping))
+        setting_layout.add_widget(EnterInteger(sm=sm, task=FREE_MOTION, value_to_change=time_for_free_motion))
+        setting_layout.add_widget(EnterInteger(sm=sm, task=CIRCLES, value_to_change=time_for_circles))
+
+        # Subject name setting
         setting_layout.add_widget(Label(text='Name of subject must be filled'))
-
         main_layout.add_widget(setting_layout)
-        main_layout.add_widget(EnterName(sm=sm, size_hint_y=1., value_to_change=subject))
+        main_layout.add_widget(EnterName(sm=sm, value_to_change=subject))
 
-        welcome_scr.add_widget(main_layout)
+        # Build the setting Screen
+        setting_scr.add_widget(main_layout)
 
+        # Build the different Screens, for the different tasks
         sm.add_widget(MenuScreen(name=MENU, sm=sm))
         sm.add_widget(TaskScreenWrapper(name=TAPPER, sm=sm, time=time_for_tapping, task=TapperTask, instructions=TAPPER_inst))
         sm.add_widget(TaskScreenWrapper(name=FREE_MOTION, sm=sm, time=time_for_free_motion, task=FreeMotionTask, instructions=FREE_MOTION_inst))
+        sm.add_widget(TaskScreenWrapper(name=CIRCLES, sm=sm, time=time_for_circles, task=CirclesTask, instructions=CIRCLES_inst))
         return sm
 
 if __name__ == "__main__":
