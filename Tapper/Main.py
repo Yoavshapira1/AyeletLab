@@ -365,7 +365,7 @@ if __name__ == "__main__":
     Window.exit_on_escape = True
 
     # uncomment this to print Exception to error console
-    MyApp().run()
+    # MyApp().run()
 
     # Run the app - results in creating new directory
     try:
