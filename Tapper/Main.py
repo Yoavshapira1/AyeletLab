@@ -16,8 +16,6 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
 from kivy.uix.gridlayout import GridLayout
 
-# TODO: avoiding any input out of the window, when the task is active
-
 # python list are accessible to use and change at any time
 # that is why some of the variable are as lists
 # these to be change in the WelcomeScreen and used in Recorders objects, which write the files
@@ -129,8 +127,8 @@ class MenuScreen(Screen):
     """The main menu screen"""
 
     instructions = "For [b][i]Tapper[/i][/b] task: press '1'\n" \
-                   "For [b][i]Free Motion[/i][/b] task: press '2'\n" \
-                   "For [b][i]Circles[/i][/b]: press '3'\n\n\n\n\n" \
+                   "For [b][i]Circles[/i][/b] task: press '2'\n" \
+                   "For [b][i]Free Motion[/i][/b]: press '3'\n\n\n\n\n" \
                    "For exit anytime, press 'Escape'"
 
     def __init__(self, sm, **kwargs):
@@ -152,16 +150,51 @@ class MenuScreen(Screen):
 
         if keycode[1] == '2':
             self._keyboard_closed()
-            self.screen_manager.current = FREE_MOTION
+            self.screen_manager.current = CIRCLES
 
         if keycode[1] == '3':
             self._keyboard_closed()
-            self.screen_manager.current = CIRCLES
+            self.screen_manager.current = FREE_MOTION
+
+class Task(Widget):
+    """An abstract object which represents a single task,
+    i.e TapperTask, MotionTask etc..."""
+
+    def __init__(self, dir, **kwargs):
+        """
+        :param dir: <List> contains a single String represents the name of the
+        directory to save the file in
+        Hence, the directory should be access by: 'self.dir[0]'
+        """
+        super().__init__(**kwargs)
+        self.dir = dir        # this is a list in length 1
+
+    def start(self, file_name, counter, first_row):
+        self.tapNum = 0
+        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], file_name + "_" + str(counter))
+        chmod(getcwd(), 0o777)
+        self.file = open(path, 'w+', newline='')
+        self.writer = writer(self.file)
+        self.writer.writerow(first_row)
+
+    def stop(self):
+        pass
+
+    def on_touch_down(self, touch):
+        pass
+
+    def write_perception(self, real_time, subject_perception):
+        self.writer.writerow([])
+        self.writer.writerow([])
+        self.writer.writerow(['Time elapsed (in seconds): ', real_time])
+        self.writer.writerow(['Subject perception (in seconds): ', subject_perception])
+        self.file.close()
 
 class TapperTask(Widget):
     """Represents the Tapping task, and used by the 'RecorderScreen' as a delegation"""
 
     counter = 0
+    file_name = TAPPER
 
     def __init__(self, dir, **kwargs):
         """
@@ -174,37 +207,45 @@ class TapperTask(Widget):
     def start(self):
         self.counter += 1
         self.tapNum = 0
-        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], TAPPER + "_" + str(self.counter))
+        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], self.file_name + "_" + str(self.counter))
         chmod(getcwd(), 0o777)
         self.file = open(path, 'w+', newline='')
         self.writer = writer(self.file)
         self.writer.writerow(['subject', 'tapNum', 'natRhythmTap (in ms.)'])
 
+    def stop(self):
+        pass
+
     def on_touch_down(self, touch):
         self.tapNum += 1
         self.writer.writerow([self.dir[0], self.tapNum, time() * 1000])
 
-    def destroy(self):
+    def write_perception(self, real_time, subject_perception):
+        self.writer.writerow([])
+        self.writer.writerow([])
+        self.writer.writerow(['Time elapsed (in seconds): ', real_time])
+        self.writer.writerow(['Subject perception (in seconds): ', subject_perception])
         self.file.close()
 
-class FreeMotionTask(Widget):
-    """Represents the Free motion task, and used by the 'RecorderScreen' as a delegation"""
+class FreeMotionWrapper(Widget):
+    """a Wrapper for the Free motion tasks; i.e. MotionTask & CirclesTask"""
 
     counter = 0
 
-    def __init__(self, dir, **kwargs):
+    def __init__(self, dir, file_name, **kwargs):
         """
         :param dir: <List> contains a single String represents the name of the directory to save the file in
         Hence, the directory should be access by: 'self.dir[0]'
         """
         super().__init__(**kwargs)
         self.dir = dir             # this is a list in length 1
-        self.tapNum = 0
-        self.touch = None
+        self.file_name = file_name
 
     def start(self):
+        self.tapNum = 0
+        self.touch = None
         self.counter += 1
-        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], FREE_MOTION + "_" + str(self.counter))
+        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], self.file_name + "_" + str(self.counter))
         chmod(getcwd(), 0o777)
         self.file = open(path, 'w+', newline='')
         self.writer = writer(self.file)
@@ -215,59 +256,44 @@ class FreeMotionTask(Widget):
         self.tapNum += 1
         self.touch = touch
 
+    def on_touch_move(self, touch):
+        if self.tapNum == 0:
+            self.tapNum = 1
+            self.touch = touch
+
+    def on_touch_up(self, touch):
+        self.touch = None
+
     def write(self, *args):
         if self.touch:
             self.writer.writerow([self.dir[0], self.tapNum, self.touch.sx, self.touch.sy, time() * 1000])
         else:
             self.writer.writerow([self.dir[0], -1, -1, -1, time() * 1000])
 
-    def on_touch_up(self, touch):
-        self.touch = None
-
-    def destroy(self, *args):
+    def stop(self):
         ClockEvent.cancel(self.event)
+
+    def write_perception(self, real_time, subject_perception):
+        self.writer.writerow([])
+        self.writer.writerow([])
+        self.writer.writerow(['Time elapsed (in seconds): ', real_time])
+        self.writer.writerow(['Subject perception (in seconds): ', subject_perception])
         self.file.close()
 
-class CirclesTask(Widget):
-    """Represents the Free motion task, and used by the 'RecorderScreen' as a delegation"""
+class MotionTask(FreeMotionWrapper):
+    """This object should be in used by the FreeMotionWrapper, by delegation"""
 
-    counter = 0
-
+    file_name = FREE_MOTION
     def __init__(self, dir, **kwargs):
-        """
-        :param dir: <List> contains a single String represents the name of the directory to save the file in
-        Hence, the directory should be access by: 'self.dir[0]'
-        """
-        super().__init__(**kwargs)
-        self.dir = dir             # this is a list in length 1
-        self.tapNum = 0
-        self.touch = None
+        super().__init__(dir=dir, file_name=self.file_name, **kwargs)
 
-    def start(self):
-        self.counter += 1
-        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], CIRCLES + "_" + str(self.counter))
-        chmod(getcwd(), 0o777)
-        self.file = open(path, 'w+', newline='')
-        self.writer = writer(self.file)
-        self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp (in ms.)'])
-        self.event = Clock.schedule_interval(self.write, 0.001)
+class CirclesTask(FreeMotionWrapper):
+    """This object should be in used by the FreeMotionWrapper, by delegation"""
 
-    def on_touch_down(self, touch):
-        self.tapNum += 1
-        self.touch = touch
+    file_name = CIRCLES
+    def __init__(self, dir, **kwargs):
+        super().__init__(dir=dir, file_name=self.file_name, **kwargs)
 
-    def write(self, *args):
-        if self.touch:
-            self.writer.writerow([self.dir[0], self.tapNum, self.touch.sx, self.touch.sy, time() * 1000])
-        else:
-            self.writer.writerow([self.dir[0], -1, -1, -1, time() * 1000])
-
-    def on_touch_up(self, touch):
-        self.touch = None
-
-    def destroy(self, *args):
-        ClockEvent.cancel(self.event)
-        self.file.close()
 
 class TaskScreenWrapper(Screen):
     """
@@ -288,40 +314,34 @@ class TaskScreenWrapper(Screen):
         self.time = time
         self.task = task(dir=subject)
         self.instructions = instructions
-        # self.welcome()
 
     def on_enter(self):
-        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
-        self._keyboard.bind(on_key_down=self._on_keyboard_down)
-        self.clear_widgets()
-        self.welcome()
-
-    def welcome(self, *args):
-        """ presents a welcome screen, including instructions """
-        welcome = Button(text=self.instructions, on_press=self.program)
+        """ Initiates keyboard listener, and show welcome screen"""
+        welcome = Button(text=self.instructions, on_touch_down=self.program)
         self.add_widget(welcome)
 
     def program(self, *args):
         """ run the current program """
-        interval = int(self.time[0])
         self.clear_widgets()
         self.add_widget(self.task)
         self.task.start()
-        Clock.schedule_once(self.end, interval)
+        Clock.schedule_once(self.take_perception, int(self.time[0]))
 
-    def end(self, *args):
+    def take_perception(self, *args):
         """ presents a message about ending the session and back to Menu """
-        self.task.destroy()
+        self.task.stop()
         self.clear_widgets()
-        end = Label(text="Sessions ended! Press Enter")
-        self.add_widget(end)
+        end = TextInput(hint_text="How long was this session for? Type and then press 'Enter'",
+                        input_filter='int', size_hint=(0.2, 0.1), pos_hint={'top': 1.},
+                        multiline=False, on_text_validate=self.end)
+        self.popup = Popup(title='Sessions ended!', content=end, size_hint=(.5, .5), auto_dismiss = False)
+        self.popup.open()
 
-    def _keyboard_closed(self):
-        self._keyboard.unbind(on_key_down=self._on_keyboard_down)
-
-    def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        if keycode[1] == 'enter':
-            self.screen_manager.current = MENU
+    def end(self, text_input, *args):
+        self.popup.dismiss()
+        self.task.write_perception(self.time[0], "N/A" if text_input.text == "" else text_input.text)
+        self.clear_widgets()
+        self.screen_manager.current = MENU
 
 class MyApp(App):
     def build(self):
@@ -334,8 +354,8 @@ class MyApp(App):
         # Timers setting
         setting_layout.add_widget(Label(text='Timers setting. Do not enter anything if you want the default values.'))
         setting_layout.add_widget(EnterInteger(sm=sm, task=TAPPER, value_to_change=time_for_tapping))
-        setting_layout.add_widget(EnterInteger(sm=sm, task=FREE_MOTION, value_to_change=time_for_free_motion))
         setting_layout.add_widget(EnterInteger(sm=sm, task=CIRCLES, value_to_change=time_for_circles))
+        setting_layout.add_widget(EnterInteger(sm=sm, task=FREE_MOTION, value_to_change=time_for_free_motion))
 
         # Subject name setting
         setting_layout.add_widget(Label(text='Name of subject must be filled'))
@@ -348,7 +368,7 @@ class MyApp(App):
         # Build the different Screens, for the different tasks
         sm.add_widget(MenuScreen(name=MENU, sm=sm))
         sm.add_widget(TaskScreenWrapper(name=TAPPER, sm=sm, time=time_for_tapping, task=TapperTask, instructions=TAPPER_inst))
-        sm.add_widget(TaskScreenWrapper(name=FREE_MOTION, sm=sm, time=time_for_free_motion, task=FreeMotionTask, instructions=FREE_MOTION_inst))
+        sm.add_widget(TaskScreenWrapper(name=FREE_MOTION, sm=sm, time=time_for_free_motion, task=MotionTask, instructions=FREE_MOTION_inst))
         sm.add_widget(TaskScreenWrapper(name=CIRCLES, sm=sm, time=time_for_circles, task=CirclesTask, instructions=CIRCLES_inst))
         return sm
 

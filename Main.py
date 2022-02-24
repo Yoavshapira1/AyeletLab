@@ -7,7 +7,6 @@ from pylsl import StreamInfo, StreamOutlet
 from pythonosc.udp_client import SimpleUDPClient
 import numpy as np
 
-# TODO: consider using built-in attribute of touch events
 # TODO: Calculate the density in a different way
 
 # UDP details

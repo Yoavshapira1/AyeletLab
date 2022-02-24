@@ -1,44 +1,66 @@
+from kivy.uix.popup import Popup
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.textinput import TextInput
 from kivy.app import App
-from kivy.uix.label import Label
-from kivy.core.window import Window
-from kivy.uix.widget import Widget
 
 
-class GrabMouseDemo(Widget):
+class MyWidget(BoxLayout):
 
-    def __init__(self, **kwargs):
-        super(GrabMouseDemo, self).__init__(**kwargs)
-        # Window.bind(on_cursor_leave=self.cursor_leave)
-        Window.bind(on_hide=self.on_hide)
-        Window.bind(on_minimize=self.on_hide)
-        Window.bind(on_restore=self.on_hide)
+    def __init__(self,**kwargs):
+        super(MyWidget,self).__init__(**kwargs)
 
-    def cursor_leave(self, window):
-        print("cursor_leave:")
-        Window.grab_mouse()
+        self.orientation = "vertical"
 
-    def on_hide(self, window):
-        Window.fullscreen = True
-        Window.borderless = True
-        Window.maximize()
-        Window.exit_on_escape = True
+        self.name_input = TextInput(text='name')
 
-    def on_touch_move(self, touch):
-        print(*touch.pos)
-        if not self.collide_point(*touch.pos):
-            # if the touch collides with our widget, let's grab it
-            touch.grab(self)
+        self.add_widget(self.name_input)
 
-            # and accept the touch.
-            return True
+        self.save_button = Button(text="Save")
+        self.save_button.bind(on_press=self.save)
+
+        self.save_popup = SaveDialog(self) # initiation of the popup, and self gets passed
+
+        self.add_widget(self.save_button)
 
 
-class TestApp(App):
-    title = "Kivy Grab Mouse Demo"
+    def save(self,*args):
+        self.save_popup.open()
+
+
+class SaveDialog(Popup):
+
+    def __init__(self,my_widget,**kwargs):  # my_widget is now the object where popup was called from.
+        super(SaveDialog,self).__init__(**kwargs)
+
+        self.my_widget = my_widget
+
+        self.content = BoxLayout(orientation="horizontal")
+
+        self.save_button = Button(text='Save')
+        self.save_button.bind(on_press=self.save)
+
+        self.cancel_button = Button(text='Cancel')
+        self.cancel_button.bind(on_press=self.cancel)
+
+        self.content.add_widget(self.save_button)
+        self.content.add_widget(self.cancel_button)
+
+    def save(self,*args):
+        print ("save %s" % self.my_widget.name_input.text) # and you can access all of its attributes
+        #do some save stuff
+        self.dismiss()
+
+    def cancel(self,*args):
+        print ("cancel")
+        self.dismiss()
+
+
+class MyApp(App):
 
     def build(self):
-        return GrabMouseDemo()
-
+        return MyWidget()
 
 if __name__ == "__main__":
-    TestApp().run()
+
+    MyApp().run()
