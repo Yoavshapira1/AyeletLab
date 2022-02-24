@@ -169,7 +169,7 @@ class Task(Widget):
         super().__init__(**kwargs)
         self.dir = dir        # this is a list in length 1
 
-    def start(self, file_name, counter, first_row):
+    def _start(self, file_name, counter, first_row):
         self.tapNum = 0
         path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], file_name + "_" + str(counter))
         chmod(getcwd(), 0o777)
@@ -190,66 +190,45 @@ class Task(Widget):
         self.writer.writerow(['Subject perception (in seconds): ', subject_perception])
         self.file.close()
 
-class TapperTask(Widget):
-    """Represents the Tapping task, and used by the 'RecorderScreen' as a delegation"""
+class TapperTask(Task):
+    """Represents the Tapping task"""
 
     counter = 0
     file_name = TAPPER
+    first_row = ['subject', 'tapNum', 'natRhythmTap (in ms.)']
 
     def __init__(self, dir, **kwargs):
-        """
-        :param dir: <List> contains a single String represents the name of the directory to save the file in
-        Hence, the directory should be access by: 'self.dir[0]'
-        """
-        super().__init__(**kwargs)
+        super().__init__(dir=dir, **kwargs)
         self.dir = dir        # this is a list in length 1
 
     def start(self):
         self.counter += 1
-        self.tapNum = 0
-        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], self.file_name + "_" + str(self.counter))
-        chmod(getcwd(), 0o777)
-        self.file = open(path, 'w+', newline='')
-        self.writer = writer(self.file)
-        self.writer.writerow(['subject', 'tapNum', 'natRhythmTap (in ms.)'])
-
-    def stop(self):
-        pass
+        super()._start(self.file_name, self.counter, self.first_row)
 
     def on_touch_down(self, touch):
         self.tapNum += 1
         self.writer.writerow([self.dir[0], self.tapNum, time() * 1000])
 
-    def write_perception(self, real_time, subject_perception):
-        self.writer.writerow([])
-        self.writer.writerow([])
-        self.writer.writerow(['Time elapsed (in seconds): ', real_time])
-        self.writer.writerow(['Subject perception (in seconds): ', subject_perception])
-        self.file.close()
 
-class FreeMotionWrapper(Widget):
+class FreeMotionWrapper(Task):
     """a Wrapper for the Free motion tasks; i.e. MotionTask & CirclesTask"""
 
     counter = 0
+    first_row = ['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp (in ms.)']
 
     def __init__(self, dir, file_name, **kwargs):
         """
         :param dir: <List> contains a single String represents the name of the directory to save the file in
         Hence, the directory should be access by: 'self.dir[0]'
         """
-        super().__init__(**kwargs)
+        super().__init__(dir=dir, **kwargs)
         self.dir = dir             # this is a list in length 1
         self.file_name = file_name
 
     def start(self):
-        self.tapNum = 0
         self.touch = None
         self.counter += 1
-        path = getcwd() + '\Data\%s\%s.csv' % (self.dir[0], self.file_name + "_" + str(self.counter))
-        chmod(getcwd(), 0o777)
-        self.file = open(path, 'w+', newline='')
-        self.writer = writer(self.file)
-        self.writer.writerow(['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp (in ms.)'])
+        super()._start(self.file_name, self.counter, self.first_row)
         self.event = Clock.schedule_interval(self.write, 0.001)
 
     def on_touch_down(self, touch):
@@ -273,12 +252,6 @@ class FreeMotionWrapper(Widget):
     def stop(self):
         ClockEvent.cancel(self.event)
 
-    def write_perception(self, real_time, subject_perception):
-        self.writer.writerow([])
-        self.writer.writerow([])
-        self.writer.writerow(['Time elapsed (in seconds): ', real_time])
-        self.writer.writerow(['Subject perception (in seconds): ', subject_perception])
-        self.file.close()
 
 class MotionTask(FreeMotionWrapper):
     """This object should be in used by the FreeMotionWrapper, by delegation"""
@@ -286,6 +259,7 @@ class MotionTask(FreeMotionWrapper):
     file_name = FREE_MOTION
     def __init__(self, dir, **kwargs):
         super().__init__(dir=dir, file_name=self.file_name, **kwargs)
+
 
 class CirclesTask(FreeMotionWrapper):
     """This object should be in used by the FreeMotionWrapper, by delegation"""
@@ -386,7 +360,7 @@ if __name__ == "__main__":
     Window.exit_on_escape = True
 
     # uncomment this to print Exception to error console
-    # MyApp().run()
+    MyApp().run()
 
     # Run the app - results in creating new directory
     try:
