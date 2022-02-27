@@ -3,9 +3,8 @@ from re import compile
 from os import rmdir, listdir, mkdir, getcwd, chmod
 from os.path import isdir
 from time import time
-from kivy._clock import ClockEvent
 from kivy.app import App
-from kivy.clock import Clock
+from kivy.clock import Clock, ClockEvent
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.core.window import Window
 from kivy.uix.label import Label
