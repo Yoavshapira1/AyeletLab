@@ -401,9 +401,9 @@ if __name__ == "__main__":
 
     # Avoiding the user from accidentally close the app
     # App closes ONLY if <escape> is pressed
-    # Window.fullscreen = True
-    # Window.borderless = True
-    # Window.maximize()
+    Window.fullscreen = True
+    Window.borderless = True
+    Window.maximize()
     Window.exit_on_escape = True
 
     # Run the app
