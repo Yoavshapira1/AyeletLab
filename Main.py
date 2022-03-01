@@ -7,7 +7,7 @@ from pylsl import StreamInfo, StreamOutlet
 from pythonosc.udp_client import SimpleUDPClient
 import numpy as np
 
-# TODO: Calculate the density in a different way
+# TODO: Option for expanding area after the touches collapse
 
 # UDP details
 IP = "127.0.0.1"
@@ -58,7 +58,9 @@ class TouchEvent:
         and False other wise.
     The data of an event equals to [*pos], unless it switched to False and then the data is equal to [-1,-1].
     """
-
+    max_area = 0.5
+    min_area = 0.05
+    dt = 0.01  # The delta in time which used to calculate velocity
     CH_ID = 0
 
     def __init__(self, origin, grid):
@@ -72,7 +74,6 @@ class TouchEvent:
         self.grid_string = grid
 
         # data-generating related
-        self.dt = 0.01                      # The delta in time which used to calculate velocity
         self.touch_time = 0
         self.max_norm = np.linalg.norm(np.array([1, 1]) - self.origin)
         self.reduce_time_threshold = self.max_norm / 300  # ||pos - prev_pos|| > threshold => reduce time_touch
@@ -201,14 +202,13 @@ class TouchEvent:
         """Calculate the continuously touching time"""
         return self.touch_time_function(self.touch_time)
 
-    def get_density(self):
+    def get_area(self):
         """Calculate the density of the touch's group. The density defined as the AREA between the groupy.
         Hence if the group is either empty or contain 1 touch, this value equals to 0"""
         if len(self.group) > 0:
-            sum = np.linalg.norm(self.cur_pos - self.group[0].pos) / 850
-            for g in range(1, len(self.group) - 1):
-                sum += self.group[g+1].distance(self.group[g]) / 2500
-            return min(sum, 1.0)
+            area = np.linalg.norm(self.cur_pos - self.group[0].spos)
+            area = (area - self.min_area) / (self.max_area - self.min_area)
+            return max(0.0, min(area, 1.0))
         else:
             return 0.0
 
@@ -224,8 +224,8 @@ class TouchEvent:
         velocity = [min(1.0, self.get_velocity())]
         touch_time = [self.get_touch_time()]
         mode = [self.mode]
-        density = [self.get_density()]
-        return start_pos + position + velocity + touch_time + mode + density
+        area = [self.get_area()]
+        return start_pos + position + velocity + touch_time + mode + area
 
     def __repr__(self):
         return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, self.cur_pos)
@@ -240,7 +240,7 @@ class UDPclient:
         self.client = SimpleUDPClient(IP, CLIENT_PORT)
 
     def broadcast(self, data):
-        self.client.send_message('/some/address', data[0][1])
+        self.client.send_message('/channel1', data[0][1])
         # for ch in data:
         #     self.client.send_message(ch[0], ch[1])
 
@@ -401,9 +401,9 @@ if __name__ == "__main__":
 
     # Avoiding the user from accidentally close the app
     # App closes ONLY if <escape> is pressed
-    Window.fullscreen = True
-    Window.borderless = True
-    Window.maximize()
+    # Window.fullscreen = True
+    # Window.borderless = True
+    # Window.maximize()
     Window.exit_on_escape = True
 
     # Run the app
