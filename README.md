@@ -36,7 +36,7 @@ This guide refers to running a Kivy application through the terminal.
 1) open CMD in the target directory.
 2) activate the Kivy venv.
 3) Type `pip install --upgrade pyinstaller`.
-4) Type `python -m PyInstaller --onefile --name <name> <file.py>`.
+4) Type `python -m PyInstaller --onefile --noupx --name <name> <file.py>`.
 5) Make sure that a file named _name.spec_ created in the target directory.
 6) Add `from kivy_deps import sdl2, glew, angle` to the top of the _.spec_ file.
 7) Change the lines of EXE in the _.spec_ file, as described here in section 1: https://kivy.org/doc/stable/guide/packaging-windows.html#single-file-application
