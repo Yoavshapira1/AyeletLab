@@ -14,17 +14,12 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
 from kivy.uix.gridlayout import GridLayout
+from util import *
 
 # python list are accessible to use and change at any time
 # that is why some of the variable are as lists
 # these to be change in the WelcomeScreen and used in Recorders objects, which write the files
 subject = [""]
-
-MENU = "Menu"
-ENTER_NAME = "Name"
-TAPPER = "Tapper"
-FREE_MOTION = "Motion"
-CIRCLES = "Circles"
 
 time_for_tapping = ["60"]
 TAPPER_inst =  "In the next session you will need to tap the screen in a constant frequency, as much as you can. " \
@@ -194,7 +189,7 @@ class TapperTask(Task):
 
     counter = 0
     file_name = TAPPER
-    first_row = ['subject', 'tapNum', 'natRhythmTap (in ms.)']
+    first_row = CSV_COLS_PER_TASK[TAPPER]
 
     def __init__(self, dir, **kwargs):
         super().__init__(dir=dir, **kwargs)
@@ -213,7 +208,7 @@ class FreeMotionWrapper(Task):
     """a Wrapper for the Free motion tasks; i.e. MotionTask & CirclesTask"""
 
     counter = 0
-    first_row = ['subject', 'tapNum', 'x_pos', 'y_pos', 'time_stamp (in ms.)']
+    first_row = CSV_COLS_PER_TASK[FREE_MOTION]
 
     def __init__(self, dir, file_name, **kwargs):
         """

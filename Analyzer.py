@@ -43,5 +43,5 @@ def plot_data(filename : str) -> None:
 
 
 if __name__ == "__main__":
-    demo_data_filename = r'C:\Users\yoavsha\Desktop\LSL\Tapper\yoav_0\Motion.csv'
+    demo_data_filename = r'C:\Users\yoavs\Documents\AyeletLab\AyeletLab\Tapper\Data\yo_0\Circles_1.csv'
     plot_data(demo_data_filename)
