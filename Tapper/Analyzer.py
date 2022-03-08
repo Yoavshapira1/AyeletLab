@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from os import getcwd
 
-TAIL = 30
+TAIL = 30       # Tail of the animation factor
+SPEED = 2       # FastForWard factor
 
 def extract_data(path):
     """Extract the data from a given file (as path)"""
@@ -45,7 +46,8 @@ def animate(data, name, trial, session, samples_count, time_length):
             ln.set_data(xdata[-TAIL:], ydata[-TAIL:])
         return ln,
 
-    ani = FuncAnimation(fig, update, frames=data, init_func=init, blit=True)
+    ani = FuncAnimation(fig, update, frames=data, init_func=init,
+                        interval=time_length / samples_count / SPEED, blit=True)
     plt.show()
 
 if __name__ == "__main__":
