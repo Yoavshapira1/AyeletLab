@@ -8,6 +8,7 @@ from os import getcwd
 
 TAIL = 30       # Tail of the animation factor
 SPEED = 2       # FastForWard factor
+FRAME_COUNTER = 0
 
 def extract_data(path):
     """Extract the data from a given file (as path)"""
@@ -31,6 +32,8 @@ def animate(data, name, trial, session, samples_count, time_length):
     ax.set_title("subject: %s, %s session number %d" % (name, session, int(trial)+1), fontdict=None, loc='center', pad=None)
     xdata, ydata = [], []
     ln, = plt.plot([], [], 'ro')
+    global FRAME_COUNTER
+    FRAME_COUNTER = len(data)
 
     def init():
         ax.set_xlim(0, 1)
@@ -40,23 +43,31 @@ def animate(data, name, trial, session, samples_count, time_length):
         return ln,
 
     def update(frame):
+        global FRAME_COUNTER
+        FRAME_COUNTER -= 1
         if session in [CIRCLES, FREE_MOTION]:
+            if FRAME_COUNTER == 0:
+                plt.pause(2)
+                plt.close(fig)
             xdata.append(frame[0])
             ydata.append(frame[1])
             ln.set_data(xdata[-TAIL:], ydata[-TAIL:])
         return ln,
 
     ani = FuncAnimation(fig, update, frames=data, init_func=init,
-                        interval=time_length / samples_count / SPEED, blit=True)
+                        interval=time_length / samples_count / SPEED, blit=True, repeat=False)
     plt.show()
 
 if __name__ == "__main__":
 
-    # put here the relative path path to the file:
-    relative_path = r"\Data\Yoav_0\Circles_1.csv"
+    # put here the FULL path to the file.
+    # MAKE SURE you copy the full path of the file, including the hardrive prefix.
+    # ALSO make sure to maintain the format: r"PATH"
+    # For the example file (Tapper > Data > Example_0 > Circles_1.csv),
+    # copy it's full absolute path and change the path below:
+    path = r"C:\Users\yoavs\Documents\AyeletLab\AyeletLab\Tapper\Data\Example_0\Circles_1.csv"
 
-    abs_path = getcwd() + relative_path
-    data, name, trial, session, samples_count, time_length = extract_data(abs_path)
+    data, name, trial, session, samples_count, time_length = extract_data(path)
     animate(data, name, trial, session, samples_count, time_length)
 
 
