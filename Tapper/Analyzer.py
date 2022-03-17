@@ -7,7 +7,7 @@ from matplotlib.animation import FuncAnimation
 from os import getcwd
 
 TAIL = 30       # Tail of the animation factor
-SPEED = 2       # FastForWard factor
+SPEED = 0.2       # FastForWard factor
 FRAME_COUNTER = 0
 
 def extract_data(path):
@@ -58,16 +58,15 @@ def animate(data, name, trial, session, samples_count, time_length):
                         interval=time_length / samples_count / SPEED, blit=True, repeat=False)
     plt.show()
 
+
 if __name__ == "__main__":
 
     # put here the FULL path to the file.
     # MAKE SURE you copy the full path of the file, including the hardrive prefix.
     # ALSO make sure to maintain the format: r"PATH"
-    # For the example file (Tapper > Data > Example_0 > Circles_1.csv),
-    # copy it's full absolute path and change the path below:
-    path = r"C:\Users\yoavs\Documents\AyeletLab\AyeletLab\Tapper\Data\Example_0\Circles_1.csv"
+    # For the example file (Tapper > Data > Example_0 > Circles_1.csv);
+    path = r"C:\Users\yoavsha\Desktop\LSL\Tapper\Data\Example_0\Circles_1.csv"
 
     data, name, trial, session, samples_count, time_length = extract_data(path)
     animate(data, name, trial, session, samples_count, time_length)
-
 
