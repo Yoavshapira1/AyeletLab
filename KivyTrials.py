@@ -1,60 +1,17 @@
-from kivy.uix.popup import Popup
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
-from kivy.uix.textinput import TextInput
 from kivy.app import App
+import numpy as np
+from kivy.uix.widget import Widget
+import Hilbert_Curve_Table
 
+x = []
+y = []
 
-class MyWidget(BoxLayout):
+class MyWidget(Widget):
 
-    def __init__(self,**kwargs):
-        super(MyWidget,self).__init__(**kwargs)
-
-        self.orientation = "vertical"
-
-        self.name_input = TextInput(text='name')
-
-        self.add_widget(self.name_input)
-
-        self.save_button = Button(text="Save")
-        self.save_button.bind(on_press=self.save)
-
-        self.save_popup = SaveDialog(self) # initiation of the popup, and self gets passed
-
-        self.add_widget(self.save_button)
-
-
-    def save(self,*args):
-        self.save_popup.open()
-
-
-class SaveDialog(Popup):
-
-    def __init__(self,my_widget,**kwargs):  # my_widget is now the object where popup was called from.
-        super(SaveDialog,self).__init__(**kwargs)
-
-        self.my_widget = my_widget
-
-        self.content = BoxLayout(orientation="horizontal")
-
-        self.save_button = Button(text='Save')
-        self.save_button.bind(on_press=self.save)
-
-        self.cancel_button = Button(text='Cancel')
-        self.cancel_button.bind(on_press=self.cancel)
-
-        self.content.add_widget(self.save_button)
-        self.content.add_widget(self.cancel_button)
-
-    def save(self,*args):
-        print ("save %s" % self.my_widget.name_input.text) # and you can access all of its attributes
-        #do some save stuff
-        self.dismiss()
-
-    def cancel(self,*args):
-        print ("cancel")
-        self.dismiss()
-
+    def on_touch_move(self, touch):
+        global x, y
+        x.append(touch.spos[0])
+        y.append(touch.spos[1])
 
 class MyApp(App):
 
@@ -62,5 +19,16 @@ class MyApp(App):
         return MyWidget()
 
 if __name__ == "__main__":
+    # with open("hilbert_2048.txt", "w+") as f:
+    #     f.write(str(Hilbert_Curve_Table.create_table(2048)))
+    # dic = Hilbert_Curve_Table.table
+    # N = len(dic.keys())
+    # inter = np.linspace(0.0, 1.0 - (1/N) ,N)
+    # a = np.array([0.2])
+    # print(np.interp(inter, a, a))
 
     MyApp().run()
+    a = np.column_stack((x, y))
+    print(np.unique(a,axis=0))
+    with open("reso.txt", "w+") as f:
+        f.write(str(np.unique(a)))

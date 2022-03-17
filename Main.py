@@ -1,4 +1,5 @@
 import time
+import Hilbert_Curve_Table as hilbert
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
@@ -7,7 +8,7 @@ from pylsl import StreamInfo, StreamOutlet
 from pythonosc.udp_client import SimpleUDPClient
 import numpy as np
 
-# TODO: Option for expanding area after the touches collapse
+# TODO: Use the Hilbert table (2048 samples) to interpolate the input and create uniqe signature for each position
 
 # UDP details
 IP = "127.0.0.1"
@@ -22,7 +23,7 @@ MOUSE_DEV_MODE = False
 ######################## END developing section #############################
 
 # Determines how many different touch detections can be realized by the MaxPatches machine as different channels
-CHANNELS = 1
+CHANNELS = 2
 # Scale of the time series
 TIME_SERIES_DT = 0.01
 
@@ -45,6 +46,9 @@ GRID = "Rectangle"
 
 # don't change this:
 parameters = [ORIGIN, GRID]
+TOUCH_MAX_RADIUS = 0.27
+TOUCH_MIN_RADIUS = 0.03
+
 ########################## USB COLLECT ###############################
 
 class TouchEvent:
@@ -58,8 +62,8 @@ class TouchEvent:
         and False other wise.
     The data of an event equals to [*pos], unless it switched to False and then the data is equal to [-1,-1].
     """
-    max_area = 0.5
-    min_area = 0.05
+    max_area = TOUCH_MAX_RADIUS
+    min_area = TOUCH_MIN_RADIUS
     dt = 0.01  # The delta in time which used to calculate velocity
     CH_ID = 0
 
@@ -114,6 +118,9 @@ class TouchEvent:
         """When a touch event is begin"""
         self.prev_pos = self.cur_pos
         self.start_pos = self.cur_pos
+        self.uniqe_start_position = hilbert.table[(self.cur_pos[0], self.cur_pos[1])]
+        global points
+        points.append(self.uniqe_start_position)
         self.time_start = time.time()
         self.switch = True
 
@@ -240,9 +247,9 @@ class UDPclient:
         self.client = SimpleUDPClient(IP, CLIENT_PORT)
 
     def broadcast(self, data):
-        self.client.send_message('/channel1', data[0][1])
-        # for ch in data:
-        #     self.client.send_message(ch[0], ch[1])
+        # self.client.send_message('/channel1', data[0][1])
+        for ch in range(len(data)):
+            self.client.send_message('/channel%d'%(ch+1), data[ch][1])
 
 class Printer:
     """
@@ -341,8 +348,8 @@ class TouchInput(Widget):
                         ch.rename_id(touch.id)
                         ch.activate()
                     break
-                # If there is an active channel, and the current touch occurred immediately after it - Add to group
-                if time.time() - ch.get_start_time() < 0.3:
+                # If there is an active touch, and the current touch occurred immediately after it - Add to group
+                if np.linalg.norm(ch.cur_pos - touch.spos) < TOUCH_MAX_RADIUS:
                     ch.add_to_group(touch)
                     break
 
@@ -408,3 +415,5 @@ if __name__ == "__main__":
 
     # Run the app
     MyApp().run()
+
+    print("Duplicates? ",len(np.unique(points)) != len(points))
