@@ -117,7 +117,7 @@ def main():
     streams = pylsl.resolve_streams()
 
     # Create the pyqtgraph window
-    pw = pg.plot(title='LSL Plot')
+    pw = pg.plot_velocity_vector(title='LSL Plot')
     plt = pw.getPlotItem()
     plt.enableAutoRange(x=False, y=True)
 

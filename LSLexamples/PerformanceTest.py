@@ -303,7 +303,7 @@ markerIn = MarkerInlet()
 
 if haspyqtgraph:
     qapp = pg.QtGui.QApplication(sys.argv)
-    qwindow = pg.plot()
+    qwindow = pg.plot_velocity_vector()
     qwindow.clear()
     qwindow.parent().setWindowTitle("pylsl PerformanceTest")
 
@@ -320,7 +320,7 @@ def update():
         if not graphs:
             # create graphs
             for i in range(signal.shape[1]):
-                plot.plot(tvec, signal[:, i])
+                plot.plot_velocity_vector(tvec, signal[:, i])
         else:
             # update graphs
             for i in range(signal.shape[1]):
