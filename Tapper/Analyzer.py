@@ -167,6 +167,7 @@ if __name__ == "__main__":
 
     # Smooth the signal
     vel_smooth = savgol_filter(velocity, int(len(velocity) / 20), 3)
+    plot_velocity_vector(x_vel, vel_smooth, title="Smooth velocity vector")
 
     # Calculate dft on the smooth velocity vector and plot it
     data_dft_x, data_dft_y = get_fft(vel_smooth)
