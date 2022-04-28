@@ -29,8 +29,14 @@ def extract_data(path):
     name, trial = data.iloc[0]['subject'].split('_')[0], data.iloc[0]['subject'].split('_')[-1]
     time_length = data.iloc[-2]["tapNum"]
     time_perspective = data.iloc[-1]["tapNum"]
+
+    # trim the beginning of the data and normalize the time stamp and the sample count accordingly
     data = data.iloc[int(TRIM_SEC * len(data) / time_length):].reset_index()
+    data['time_stamp (in ms.)'] = data['time_stamp (in ms.)'] - data['time_stamp (in ms.)'][0]
+
+    # old index and name of subject are not necessary anymore
     data = data.drop(['subject', 'index'], axis=1)[:-2]
+
     dict = {
         "data": data,
         "session" : session,
@@ -103,9 +109,8 @@ def preprocess_motion(data):
     return data
 
 def get_velocity_vector(data):
-    dt = data['time_length'] / data['n_samples'] * CHUNK_SAMPLES
+    dt = np.array(data['data']['time_stamp (in ms.)'][1:]) - np.array(data['data']['time_stamp (in ms.)'][:-1])
     dist = np.linalg.norm(data['npdata'][1:] - data['npdata'][:-1], axis=1)
-
     return dist / dt
 
 
@@ -126,13 +131,13 @@ def get_fft(one_D_data):
     return xfft*mask, yfft*mask
 
 
-def plot_velocity_vector(data, title="Velocity in time", y_title="Vel.", x_title="ms."):
+def plot_velocity_vector(vel, time_stamp, title="Velocity in time", y_title="Vel.", x_title="ms."):
     plt.clf()
     plt.title(title)
     plt.ylabel(y_title)
     plt.xlabel(x_title)
-    plt.plot(data['data'].loc[1:]['time_stamp (in ms.)'], data['vel'])
-    plt.plot([], [], ' ', label="Maximum difference: %.4f" % (np.max(data['vel']) - np.min(data['vel'])))
+    plt.plot(time_stamp, vel)
+    plt.plot([], [], ' ', label="Maximum difference: %.4f" % (np.max(vel) - np.min(vel)))
     plt.legend()
     plt.show()
 
@@ -151,16 +156,16 @@ if __name__ == "__main__":
     path = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s07_nd_0\Motion_1.csv"
 
     # Extract the data into a dictionary structure with the next keys:
-    #   session : <String>; one of: "FREE MOTION", "CIRCLES", "TAPPER"
-    #   data : <pd.DataFrame>; columns corresponding to CSV_COLS_PER_TASK(session)
-    #   n_samples : <Integer>; number of samples in the data
-    #   name : <String>; name of the subject
-    #   trial : <Integer>; number of the trial
-    #   time_length : <Integer>; total time the trial took, in sec.
+    #   session          : <String>; one of: "FREE MOTION", "CIRCLES", "TAPPER"
+    #   data             : <pd.DataFrame>; columns corresponding to CSV_COLS_PER_TASK(session)
+    #   n_samples        : <Integer>; number of samples in the data
+    #   name             : <String>; name of the subject
+    #   trial            : <Integer>; number of the trial
+    #   time_length      : <Integer>; total time the trial took, in sec.
     #   time_perspective : <Integer>; time the subject thought that passed, in sec.
     data = extract_data(path)
 
-    animate_free_movement(data)
+    # animate_free_movement(data)
 
     # analyze motion data
     if data['session'] in [FREE_MOTION, CIRCLES]:
@@ -174,16 +179,17 @@ if __name__ == "__main__":
         # generate velocity vector
         data['vel'] = get_velocity_vector(data)
 
-        plot_velocity_vector(data)
-        #
-        # # Smooth the signal
-        # win_size = int(len(velocity) / 20) if int(len(velocity) / 20) % 2 == 1 else int(len(velocity) / 20) + 1
-        # vel_smooth = savgol_filter(velocity, win_size, 3)
-        # plot_velocity_vector(x_vel, vel_smooth, title="Smooth velocity vector")
-        #
-        # # Calculate dft on the smooth velocity vector and plot it
-        # data_dft_x, data_dft_y = get_fft(vel_smooth)
-        # plot_fft(data_dft_x, data_dft_y)
+        plot_velocity_vector(data['vel'], data['data'].loc[1:]['time_stamp (in ms.)'])
+
+        # Smooth the signal. window size is currently 1 second
+        win_size = int(len(data['vel']) / data['time_length']) if int(len(data['vel']) / data['time_length']) % 2 == 1\
+                    else int(len(data['vel']) / data['time_length']) + 1
+        data['vel_smooth'] = savgol_filter(data['vel'], win_size, 3)
+        plot_velocity_vector(data['vel_smooth'], data['data'].loc[1:]['time_stamp (in ms.)'], title="Smooth velocity vector")
+
+        # Calculate dft on the smooth velocity vector and plot it
+        data_dft_x, data_dft_y = get_fft(data['vel_smooth'])
+        plot_fft(data_dft_x, data_dft_y)
 
 
 
