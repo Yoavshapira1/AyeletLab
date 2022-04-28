@@ -12,7 +12,7 @@ ANIMATION_TAIL = 30         # Tail of the animation factor
 ANIMATION_SPEED = 0.2       # FastForWard factor
 FRAME_COUNTER = 0           # don't change this
 
-TRIM_CONST = 2               # time of the beginning of the trial to be cut, in sec.
+TRIM_SEC = 2               # time of the beginning of the trial to be cut, in sec.
 CHUNK_SAMPLES = 5
 
 
@@ -27,22 +27,36 @@ def extract_data(path):
     col_list = head_lines[session]
     data = pd.read_csv(path, usecols=col_list)
     name, trial = data.iloc[0]['subject'].split('_')[0], data.iloc[0]['subject'].split('_')[-1]
-    n_samples = len(data.index)
     time_length = data.iloc[-2]["tapNum"]
-    if session in [FREE_MOTION, CIRCLES]:
-        data = np.dstack((data['x_pos'].to_numpy(), data['y_pos'].to_numpy()))[0]
-    else:
-        data = data['natRhythmTap (in ms.)'].to_numpy()
-    start_trim = int(TRIM_CONST / time_length * n_samples)
-    x_ = np.linspace(0, time_length - TRIM_CONST, num=n_samples - start_trim)
-    return x_, data[start_trim:], name, trial, session, n_samples - start_trim, time_length - TRIM_CONST
+    time_perspective = data.iloc[-1]["tapNum"]
+    data = data.iloc[int(TRIM_SEC * len(data) / time_length):].reset_index()
+    data = data.drop(['subject', 'index'], axis=1)[:-2]
+    dict = {
+        "data": data,
+        "session" : session,
+        "n_samples" : len(data),
+        "name" : name,
+        "trial" : trial,
+        "time_length" : time_length - TRIM_SEC,
+        "time_prespective" : time_perspective - TRIM_SEC
+            }
+
+    return dict
 
 
-def animate_free_movement(data, name, trial, session, n_samples, time_length):
+def animate_free_movement(data_dict):
     """Animate the coordinates of a single session"""
+
+    name = data_dict['name']
+    trial = data_dict['trial']
+    session = data_dict['session']
+    n_samples = data_dict['n_samples']
+    time_length = data_dict['time_length']
 
     if session not in [FREE_MOTION, CIRCLES]:
         raise Exception("Function 'animate_free_movement' can only work with data from sessions 'FREE_MOTION' or 'CIRCLES'")
+
+    data = np.array([data_dict['data']['x_pos'], data_dict['data']['y_pos']]).T
 
     fig, ax = plt.subplots(figsize=(16,9))
     ax.set_title("subject: %s, %s session number %d" % (name, session, int(trial)+1), fontdict=None, loc='center', pad=None)
@@ -74,39 +88,25 @@ def animate_free_movement(data, name, trial, session, n_samples, time_length):
     plt.show()
 
 
-def take_chunks_samples(data):
-    indices = np.arange(len(data) / CHUNK_SAMPLES).astype(int) * CHUNK_SAMPLES
-    data = data[indices]
+def preprocess_motion(data):
+
+    # Chunks the data into bulks of size of CHUNK_SAMPLES
+    data = data.iloc[::CHUNK_SAMPLES, :]
+
+    # replaces -1 to nan
+    data.replace(-1, np.nan, inplace=True)
+
+    # interpolate to fill the nan values
+    data['x_pos'].interpolate(method="linear", inplace=True)
+    data['y_pos'].interpolate(method="linear", inplace=True)
+
     return data
 
+def get_velocity_vector(data):
+    dt = data['time_length'] / data['n_samples'] * CHUNK_SAMPLES
+    dist = np.linalg.norm(data['npdata'][1:] - data['npdata'][:-1], axis=1)
 
-def preprocess(x_, data):
-    data = take_chunks_samples(data)
-    x_ = take_chunks_samples(x_)
-
-    # change -1 to 0
-    minus_one_rows = (data == -1).all(1)
-    data[np.where(minus_one_rows)] = 0.
-
-    # erase nan
-    not_nan_rows = (~np.isnan(data)).any(axis=1)
-    data = data[np.where(not_nan_rows)]
-
-    return x_, data
-
-
-def get_velocity_vector(x_, data, name, trial, session, n_samples, time_length):
-    if session not in [FREE_MOTION, CIRCLES]:
-        raise Exception("Function 'get_velocity_vector' can only work with data from sessions 'FREE_MOTION' or 'CIRCLES'")
-
-    # # erase 0. values
-    # zero_rows = (data != 0).all(1)
-    # data = data[np.where(zero_rows)]
-
-    dt = time_length / n_samples * CHUNK_SAMPLES
-    dist = np.linalg.norm(data[1:] - data[:-1], axis=1)
-
-    return x_[:-1], dist / dt
+    return dist / dt
 
 
 def get_fft(one_D_data):
@@ -126,13 +126,13 @@ def get_fft(one_D_data):
     return xfft*mask, yfft*mask
 
 
-def plot_velocity_vector(x_, data, title="Velocity in time", y_title="Vel.", x_title="Sec."):
+def plot_velocity_vector(data, title="Velocity in time", y_title="Vel.", x_title="ms."):
     plt.clf()
     plt.title(title)
     plt.ylabel(y_title)
     plt.xlabel(x_title)
-    plt.plot(x_, data)
-    plt.plot([], [], ' ', label="Maximum difference: %f3." % (np.max(velocity) - np.min(velocity)))
+    plt.plot(data['data'].loc[1:]['time_stamp (in ms.)'], data['vel'])
+    plt.plot([], [], ' ', label="Maximum difference: %.4f" % (np.max(data['vel']) - np.min(data['vel'])))
     plt.legend()
     plt.show()
 
@@ -148,30 +148,42 @@ def plot_fft(x_dft, y_dft,  title="DFT of the velocity", y_title="Amp.", x_title
 
 if __name__ == "__main__":
 
-    # put here the FULL path to the file.
-    # MAKE SURE you copy the full path of the file, including the hardrive prefix.
-    # ALSO make sure to maintain the format: r"PATH"
-    # For the example file (Tapper > Data > Example_0 > Circles_1.csv);
+    path = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s07_nd_0\Motion_1.csv"
 
+    # Extract the data into a dictionary structure with the next keys:
+    #   session : <String>; one of: "FREE MOTION", "CIRCLES", "TAPPER"
+    #   data : <pd.DataFrame>; columns corresponding to CSV_COLS_PER_TASK(session)
+    #   n_samples : <Integer>; number of samples in the data
+    #   name : <String>; name of the subject
+    #   trial : <Integer>; number of the trial
+    #   time_length : <Integer>; total time the trial took, in sec.
+    #   time_perspective : <Integer>; time the subject thought that passed, in sec.
+    data = extract_data(path)
 
-    path = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\Const_Vel_0\Motion_small_circles_2.csv"
-    x_, data, name, trial, session, n_samples, time_length = extract_data(path)
-    # animate_free_movement(data, name, trial, session, n_samples, time_length)
+    animate_free_movement(data)
 
-    # Preprocess: delete -1 and NaN
-    x_, data = preprocess(x_, data)
+    # analyze motion data
+    if data['session'] in [FREE_MOTION, CIRCLES]:
 
-    # Create velocity vector
-    x_vel, velocity = get_velocity_vector(x_, data, name, trial, session, n_samples, time_length)
-    plot_velocity_vector(x_vel, velocity)
+        # preprocess: delete -1 and NaN
+        data['data'] = preprocess_motion(data['data'])
 
-    # Smooth the signal
-    vel_smooth = savgol_filter(velocity, int(len(velocity) / 20), 3)
-    plot_velocity_vector(x_vel, vel_smooth, title="Smooth velocity vector")
+        # generate positional data as numpy array
+        data['npdata'] = np.array([data['data']['x_pos'], data['data']['y_pos']]).T
 
-    # Calculate dft on the smooth velocity vector and plot it
-    data_dft_x, data_dft_y = get_fft(vel_smooth)
-    plot_fft(data_dft_x, data_dft_y)
+        # generate velocity vector
+        data['vel'] = get_velocity_vector(data)
+
+        plot_velocity_vector(data)
+        #
+        # # Smooth the signal
+        # win_size = int(len(velocity) / 20) if int(len(velocity) / 20) % 2 == 1 else int(len(velocity) / 20) + 1
+        # vel_smooth = savgol_filter(velocity, win_size, 3)
+        # plot_velocity_vector(x_vel, vel_smooth, title="Smooth velocity vector")
+        #
+        # # Calculate dft on the smooth velocity vector and plot it
+        # data_dft_x, data_dft_y = get_fft(vel_smooth)
+        # plot_fft(data_dft_x, data_dft_y)
 
 
 
