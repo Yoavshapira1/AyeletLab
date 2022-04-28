@@ -24,7 +24,7 @@ FULL_WINDOW = False
 ######################## END developing section #############################
 
 # Determines how many different touch detections can be realized by the MaxPatches machine as different channels
-CHANNELS = 1
+CHANNELS = 4
 # Scale of the time series
 TIME_SERIES_DT = 0.01
 
@@ -50,29 +50,29 @@ parameters = [ORIGIN, GRID]
 TOUCH_MAX_RADIUS = 0.43
 TOUCH_MIN_RADIUS = 0.03
 GROUPY_THRESHOLD = 0.27
+MIN_TOUCH_TIME = 0.08
 
 
-class TouchEvent:
+class TouchChannel:
     """
-    This object represents a single touch on the touch screen.
-    A touch event defined to start when a touch is detected till this very touch leaves the screen.
-    It has the attributes:
-        id: Unique id for the touch event.
-        pos: The current position of the touch event. In case the switch is False, it holds the last position.
-        switch: Activation boolean value, True if the event still occurring, meanly the touch is still on the screen,
-        and False other wise.
-    The data of an event equals to [*pos], unless it switched to False and then the data is equal to [-1,-1].
+    TouchChannel is a wrapper for the input (touch events), in order to get a sense of a human-hand touch.
+    As there might be many inputs, the channel considers only one input as the main touch.
+    If there are more touch surround it (i.e. participant uses it's all fingers), they considered as 'groupies'.
+    If the main touch disconnected, but there are still some groupies - one of them become the main touch.
+    A channel starts as not-active. When a touch event occurs, the 'TouchInput'(Widget) object connect it to the first
+    available channel and then activate the channel.
     """
     max_area = TOUCH_MAX_RADIUS
     min_area = TOUCH_MIN_RADIUS
     dt = 0.01  # The delta in time which used to calculate velocity
     CH_ID = 0
+    SUSTAIN_TIME = -10      # The higher this value, the faster Sustain reach to maximum
 
     def __init__(self, origin, grid):
         # identity attributes
-        TouchEvent.CH_ID += 1
-        self.channel_id = TouchEvent.CH_ID
-        self.id = TouchEvent.CH_ID
+        TouchChannel.CH_ID += 1
+        self.channel_id = TouchChannel.CH_ID
+        self.id = TouchChannel.CH_ID
         self.origin = ORIGIN_dict[origin]
         self.grid = GRID_dict[grid]
         self.origin_string = origin
@@ -89,40 +89,40 @@ class TouchEvent:
         update_sustain_event = Clock.schedule_interval(self.update_sustain, self.dt)
 
     def activate(self, touch):
-        """When a touch event is begin"""
-        self.touch = touch
-        self.start_pos = [self.touch.osx, self.touch.osy]
+        """When a touch event is connected to the deactivated channel"""
+        self.main_touch = touch
+        self.start_pos = [self.main_touch.osx, self.main_touch.osy]
         self.velocity = 0.0
         self.touch_time = 0.0
         self.switch = True
 
     def deactivate(self):
-        """After a touch event is leaving the screen"""
-        self.touch = None
+        """When the main touch is disconnected, and there are no more groupies"""
+        self.main_touch = None
         self.prev_pos_time = time.time()
         self.velocity = 0.0
-        if self.touch_time < 0.04:
-            self.next_mode()
         self.touch_time = 0
         self.switch = False
         self.group = []
 
     def update_sustain(self, dt):
+        """Every period of dt (in sec.), update the self.touch_time & self.velocity attributes"""
         if self.isActive():
             self.touch_time += dt
-            self.velocity = np.linalg.norm([self.touch.dsx, self.touch.dsy]) * 13
+            self.velocity = np.linalg.norm([self.main_touch.dsx, self.main_touch.dsy]) * 13
 
-    def change_touch(self, touch):
-        self.touch = touch
+    def change_main_touch(self, touch):
+        """When the main touch event is terminated and need to be switched to another"""
+        self.main_touch = touch
 
     def isActive(self):
         return self.switch
 
-    def get_touch(self):
-        return self.touch
+    def get_main_touch(self):
+        return self.main_touch
 
-    def get_id(self):
-        return self.touch.id
+    def get_main_touch_id(self):
+        return self.main_touch.id
 
     def get_channel_id(self):
         return self.channel_id
@@ -130,13 +130,13 @@ class TouchEvent:
     def get_pos_as_list(self):
         if not self.isActive():
             return [0.0, 0.0]
-        return [self.touch.sx, self.touch.sy]
+        return [self.main_touch.sx, self.main_touch.sy]
 
     def get_prev_pos(self):
-        return [self.touch.psx, self.touch.psy]
+        return [self.main_touch.psx, self.main_touch.psy]
 
     def get_start_time(self):
-        return self.touch.time_start
+        return self.main_touch.time_start
 
     def get_group(self):
         return self.group
@@ -145,29 +145,28 @@ class TouchEvent:
         self.group.remove(groupy)
 
     def next_mode(self):
-        """For a very short touch"""
+        """When a very short single touch occurs (less then MIN_TOUCH_TIME)"""
         self.mode += 1
 
     def prev_mode(self):
-        """For a very short double-touch"""
+        """When a very short double-touch occurs"""
         self.mode = max(self.mode - 1, 0)
 
     def move(self):
-        """In every movement, and only if move"""
+        """When a moving, and only moving, occurs"""
         # reduce the time touch value if position is changed a lot
-        ds = np.linalg.norm([self.touch.dsx, self.touch.dsy])
+        ds = np.linalg.norm([self.main_touch.dsx, self.main_touch.dsy])
         if ds > self.reduce_time_threshold:
             self.touch_time *= 0.1
 
     def add_to_group(self, touch):
-        """Add a touch event to the group of this one.
-        NOTICE: The touch event is a Kivy based! follows Kivy's "TouchInput" API"""
+        """Add a touch event to the group of this one"""
         self.group.append(touch)
 
     def positional_circular_rep(self) -> list:
         """Generate the circular positional attributes"""
         # 'raw' euclidean distance of the position from the origin
-        dist = np.array([self.touch.sx, self.touch.sy]) - self.origin
+        dist = np.array([self.main_touch.sx, self.main_touch.sy]) - self.origin
         norm = np.linalg.norm(dist)
 
         # calculate normalized radius. Normalization done by stretching the maximum value to 1.
@@ -185,11 +184,11 @@ class TouchEvent:
         # else => Origin maybe not CENTER
         # If origin is center, the normalization is just *2 for both axis
         elif self.origin_string == "Center":
-            return [2 * np.abs(self.touch.sx - self.origin[0]), 2 * np.abs(self.touch.sy - self.origin[1])]
+            return [2 * np.abs(self.main_touch.sx - self.origin[0]), 2 * np.abs(self.main_touch.sy - self.origin[1])]
 
         # If origin is X center, Y bottom, the normalization is *2 only for X axis
         elif self.origin_string == "Center_bottom":
-            return [2 * np.abs(self.touch.sx - self.origin[0]), np.abs(self.touch.sy - self.origin[1])]
+            return [2 * np.abs(self.main_touch.sx - self.origin[0]), np.abs(self.main_touch.sy - self.origin[1])]
 
         # else => origin is default (bottom left), no normalization required
         else:
@@ -199,23 +198,22 @@ class TouchEvent:
         """Calculate velocity in respect to time interval of self.dt"""
         return self.velocity
 
-    def touch_time_function(self, x):
-        # sigmoid function
-        if self.touch_time < 0.07:
-            return 1 / (1 + np.exp((-20*x) +4))
-        return 1 / (1 + np.exp(-x + 4))
-
     def get_touch_time(self):
-        """Calculate the continuously touching time"""
-        return self.touch_time_function(self.touch_time)
+        """Calculate the touch_time normalized to [0,1] according to a sigmoid function"""
+        # in the very first moment, a sharp sigmoid
+        if self.touch_time < 0.07:
+            return 1 / (1 + np.exp((self.SUSTAIN_TIME * self.touch_time) + 4))
+
+        # after the very first moment, a long sigmoid
+        return 1 / (1 + np.exp(-self.touch_time + 4))
 
     def get_area(self):
-        """Calculate the density of the touch's group. The density defined as the AREA between the groupy.
-        Hence if the group is either empty or contain 1 touch, this value equals to 0"""
+        """Calculate the density of the touch's group. The density defined as the MAXIMAL distance between
+        the main touch and one of the groupies"""
         if len(self.group) > 0:
             most_distant = 0
             for g in self.group:
-                area = np.linalg.norm(np.array([self.touch.sx, self.touch.sy]) - g.spos)
+                area = np.linalg.norm(np.array([self.main_touch.sx, self.main_touch.sy]) - g.spos)
                 most_distant = max(area, most_distant)
             area = (most_distant - self.min_area) / (self.max_area - self.min_area)
             return max(0.0, min(area, 1.0))
@@ -223,8 +221,8 @@ class TouchEvent:
             return 0.0
 
     def get_qualitiative_data(self):
-        """Generate the data sent to UDP. The data is a list of concatenated values:
-        [start_pos_x, start_pos_y, pos_x, pos_y, velocity, touch_time, mode, density]"""
+        """Generate the data to be broadcast through UDP. The data is a list of concatenated values:
+        [start_pos_x, start_pos_y, pos_x, pos_y, velocity, touch_time, mode, area]"""
         # if this channel is not active
         if not self.switch:
             return self.start_pos + [0.0] * 4 + [self.mode] + [0.0]
@@ -237,7 +235,7 @@ class TouchEvent:
         return self.start_pos + position + velocity + touch_time + mode + area
 
     def __repr__(self):
-        return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, [self.touch.sx, self.touch.sy])
+        return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, [self.main_touch.sx, self.main_touch.sy])
 
 
 class UDPclient:
@@ -329,11 +327,17 @@ class DataBroadcaster:
             client.broadcast(generated_data)
 
 class TouchInput(Widget):
+    """
+    Handle the touch events that occurs determine what to do with them.
+    Activations and deactivations of the channels happen here.
+    """
+
+    touch_time_threshold = MIN_TOUCH_TIME
 
     def __init__(self, channels, mouse_mode, **kwargs):
         super().__init__(**kwargs)
         self.channels = channels
-        self.waiting_ch = TouchEvent(*parameters)
+        self.waiting_ch = TouchChannel(*parameters)
         self.touch_mode = "mouse" if mouse_mode else "wm_touch"
 
     def on_touch_down(self, touch):
@@ -343,20 +347,20 @@ class TouchInput(Widget):
                 # If there is no active touch - create one
                 if not ch.isActive():
                     if touch.is_double_tap:
-                        ch.prev_mode()
+                        ch.next_mode()
                     else:
                         ch.activate(touch)
                     return
                 # If there is an active touch, and the current touch occurred immediately after it - Add to group
-                if np.linalg.norm([ch.get_touch().spos[0] - touch.spos[0],
-                                  ch.get_touch().spos[1] - touch.spos[1]]) < GROUPY_THRESHOLD:
+                if np.linalg.norm([ch.get_main_touch().spos[0] - touch.spos[0],
+                                   ch.get_main_touch().spos[1] - touch.spos[1]]) < GROUPY_THRESHOLD:
                     ch.add_to_group(touch)
                     return
 
     def on_touch_move(self, touch):
         if touch.device == self.touch_mode:
             for ch in [*self.channels, self.waiting_ch]:
-                if ch.get_touch() == touch:
+                if ch.get_main_touch() == touch:
                     ch.move()
                     return
 
@@ -365,21 +369,21 @@ class TouchInput(Widget):
             return
         for ch in self.channels:
             # Case: The touch up refers to an active channel
-            if touch == ch.get_touch():
+            if touch == ch.get_main_touch():
                 # Case: The channel have an active group => change the channel to one of the groupies
                 if len(ch.get_group()) > 0:
                     new_touch = ch.get_group()[0]
-                    ch.change_touch(new_touch)
+                    ch.change_main_touch(new_touch)
                     ch.remove_from_group(new_touch)
                     break
                 # Case: Waiting channel is active => Replace channels
                 if self.waiting_ch.isActive():
-                    # ch.change_touch(self.waiting_ch.get_touch())
-                    # ch.move(self.waiting_ch.get_pos_as_list())
-                    ch.activate(self.waiting_ch.get_touch())
+                    ch.activate(self.waiting_ch.get_main_touch())
                     self.waiting_ch.deactivate()
                 # else => deactivate
                 else:
+                    if ch.touch_time < self.touch_time_threshold:
+                        ch.prev_mode()
                     ch.deactivate()
                 break
             # Case: the touch up related to one of the channel's groupies (in this case
@@ -387,7 +391,7 @@ class TouchInput(Widget):
             if touch in ch.get_group():
                 ch.remove_from_group(touch)
                 break
-        if self.waiting_ch.get_touch() == touch:
+        if self.waiting_ch.get_main_touch() == touch:
             self.waiting_ch.deactivate()
             return
 
@@ -395,7 +399,7 @@ class MyApp(App):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.channels = [TouchEvent(*parameters) for ch in range(CHANNELS)]
+        self.channels = [TouchChannel(*parameters) for ch in range(CHANNELS)]
         self.broadcaster = DataBroadcaster(self.channels)
 
     def build(self):
