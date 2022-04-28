@@ -3,8 +3,6 @@ from re import compile
 from os import rmdir, listdir, mkdir, getcwd, chmod
 from os.path import isdir
 from time import time
-
-import pandas as pd
 from kivy.app import App
 from kivy.clock import Clock, ClockEvent
 from kivy.uix.screenmanager import ScreenManager, Screen
@@ -17,6 +15,8 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
 from kivy.uix.gridlayout import GridLayout
 from util import *
+
+TIMER = [0]
 
 # python list are accessible to use and change at any time
 # that is why some of the variable are as lists
