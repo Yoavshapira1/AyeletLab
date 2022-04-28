@@ -3,6 +3,8 @@ from re import compile
 from os import rmdir, listdir, mkdir, getcwd, chmod
 from os.path import isdir
 from time import time
+
+import pandas as pd
 from kivy.app import App
 from kivy.clock import Clock, ClockEvent
 from kivy.uix.screenmanager import ScreenManager, Screen
@@ -170,6 +172,7 @@ class Task(Widget):
         self.file = open(path, 'w+', newline='')
         self.writer = writer(self.file)
         self.writer.writerow(first_row)
+        self.start_t = time()
 
     def stop(self):
         pass
@@ -201,7 +204,7 @@ class TapperTask(Task):
 
     def on_touch_down(self, touch):
         self.tapNum += 1
-        self.writer.writerow([self.dir[0], self.tapNum, time() * 1000])
+        self.writer.writerow([self.dir[0], self.tapNum, (time() - self.start_t) * 1000])
 
 
 class FreeMotionWrapper(Task):
@@ -239,9 +242,9 @@ class FreeMotionWrapper(Task):
 
     def write(self, *args):
         if self.touch:
-            self.writer.writerow([self.dir[0], self.tapNum, self.touch.sx, self.touch.sy, time() * 1000])
+            self.writer.writerow([self.dir[0], self.tapNum, self.touch.sx, self.touch.sy, (time() - self.start_t) * 1000])
         else:
-            self.writer.writerow([self.dir[0], -1, -1, -1, time() * 1000])
+            self.writer.writerow([self.dir[0], -1, -1, -1, (time() - self.start_t) * 1000])
 
     def stop(self):
         ClockEvent.cancel(self.event)
