@@ -20,7 +20,7 @@ PRINT_DATA = False
 # Turn this on if you are currently without a touch pad, and want enable mouse touchs
 MOUSE_DEV_MODE = False
 # Full window switch
-FULL_WINDOW = False
+FULL_WINDOW = True
 ######################## END developing section #############################
 
 # Determines how many different touch detections can be realized by the MaxPatches machine as different channels

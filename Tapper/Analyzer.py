@@ -2,18 +2,20 @@ import pandas as pd
 import numpy as np
 from util import CSV_COLS_PER_TASK as head_lines
 from util import CIRCLES, FREE_MOTION, TAPPER
-from matplotlib import use
-use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from scipy.signal import savgol_filter
+from scipy import signal
+from scipy.ndimage import gaussian_filter1d
 
 ANIMATION_TAIL = 30         # Tail of the animation factor
 ANIMATION_SPEED = 0.2       # FastForWard factor
 FRAME_COUNTER = 0           # don't change this
 
 TRIM_SEC = 2               # time of the beginning of the trial to be cut, in sec.
-CHUNK_SAMPLES = 5
+CHUNK_SAMPLES = 1
+
+# TODO : fix data trimming without time_length signature
+# TODO: ignore the file if the data is trimmed in the end al lot
 
 
 def extract_data(path):
@@ -26,7 +28,9 @@ def extract_data(path):
     session = arr[-1].split('_')[0]
     col_list = head_lines[session]
     data = pd.read_csv(path, usecols=col_list)
-    name, trial = data.iloc[0]['subject'].split('_')[0], data.iloc[0]['subject'].split('_')[-1]
+    trial = data.iloc[0]['subject'].split('_')[-1]
+    name = data.iloc[0]['subject'].split('_')[-2]
+    num = data.iloc[0]['subject'].split('_')[0]
     time_length = data.iloc[-2]["tapNum"]
     time_perspective = data.iloc[-1]["tapNum"]
 
@@ -41,6 +45,7 @@ def extract_data(path):
         "data": data,
         "session" : session,
         "n_samples" : len(data),
+        "number" : num,
         "name" : name,
         "trial" : trial,
         "time_length" : time_length - TRIM_SEC,
@@ -114,82 +119,129 @@ def get_velocity_vector(data):
     return dist / dt
 
 
-def get_fft(one_D_data):
+def get_fft(one_d_data, bp_width=None):
 
-    # calculate fft shifted to the center
-    yfft = np.fft.fft(one_D_data)
-    yfft = np.fft.fftshift(yfft)
+    # Band pass factor; percentages of frequencies to trim from high and low areas
+    bp_width = 33
 
-    # calculate the frequencies, shifted to the center
-    xfft = np.fft.fftfreq(len(one_D_data))
-    xfft = np.fft.fftshift(xfft)
+    fft_amp = np.fft.fft(one_d_data)
+    np.fft.fftshift(fft_amp)
+    fft_freq = np.fft.fftfreq(len(one_d_data))
+    np.fft.fftshift(fft_freq)
 
-    # applying a high pass filter to remove 0-frequency artefact
-    mask = np.ones(len(xfft))
-    mask[np.where(xfft == 0)] = 0
+    mask = np.ones(len(fft_freq))
+    mask[fft_freq==0] = 0
+    if bp_width is not None:
+        mask[(len(fft_freq)*bp_width//100):] = 0
+        mask[-(len(fft_freq)*bp_width//100):] = 0
 
-    return xfft*mask, yfft*mask
+    # TODO: postprocess for FFT:
+    # BAND PASS to exclude the robust freq, and the very high ones
+    # AVG: average the frequencies
+    # COMPARE to tapping results
+
+    filtered_signal = np.fft.ifft(fft_amp * mask)
+
+    return fft_freq*mask, np.abs(fft_amp*mask), filtered_signal
+
+def plot_velocity_vector(data, ax, smooth=False, filtered=False):
+    time_stamp = data['data'].loc[1:]['time_stamp (in ms.)']
+    if smooth:
+        vec = data['vel_smooth']
+    elif filtered:
+        vec = data['vel_filtered']
+    else:
+        vec = data['vel']
+    ax.set_yticks([])
+    ax.set(xlabel="ms.", ylabel="Vel.")
+    ax.plot(time_stamp, vec)
+    ax.plot([], [], ' ', label="Maximum difference: %.4f" % (np.max(vec) - np.min(vec)))
+    ax.legend()
 
 
-def plot_velocity_vector(vel, time_stamp, title="Velocity in time", y_title="Vel.", x_title="ms."):
-    plt.clf()
-    plt.title(title)
-    plt.ylabel(y_title)
-    plt.xlabel(x_title)
-    plt.plot(time_stamp, vel)
-    plt.plot([], [], ' ', label="Maximum difference: %.4f" % (np.max(vel) - np.min(vel)))
-    plt.legend()
-    plt.show()
+def plot_fft(x_dft, y_dft, ax):
+    ax.set(xlabel="Freq.", ylabel="Amp.")
+    ax.plot(x_dft, y_dft)
 
 
-def plot_fft(x_dft, y_dft,  title="DFT of the velocity", y_title="Amp.", x_title="Freq."):
-    plt.clf()
-    plt.title(title)
-    plt.ylabel(y_title)
-    plt.xlabel(x_title)
-    plt.plot(x_dft, y_dft)
-    plt.legend()
-    plt.show()
+def plot_peaks(data, ax):
+    ax.set(xlabel="ms.", ylabel="vel.")
+    ax.plot(data['vel'])
+    ax.plot(data['peaks'], data['vel'][data['peaks']], "x")
 
-if __name__ == "__main__":
 
-    path = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s07_nd_0\Motion_1.csv"
+def plot_analyze(path, ax_arr, animate=False):
 
     # Extract the data into a dictionary structure with the next keys:
     #   session          : <String>; one of: "FREE MOTION", "CIRCLES", "TAPPER"
     #   data             : <pd.DataFrame>; columns corresponding to CSV_COLS_PER_TASK(session)
     #   n_samples        : <Integer>; number of samples in the data
     #   name             : <String>; name of the subject
+    #   number           : <String>; number of subject
     #   trial            : <Integer>; number of the trial
     #   time_length      : <Integer>; total time the trial took, in sec.
     #   time_perspective : <Integer>; time the subject thought that passed, in sec.
     data = extract_data(path)
 
-    # animate_free_movement(data)
+    ax_arr[0].set_title("subject: %s, trial: %s" % (data['name'], data['trial']))
+
+    if animate:
+        animate_free_movement(data)
 
     # analyze motion data
     if data['session'] in [FREE_MOTION, CIRCLES]:
-
-        # preprocess: delete -1 and NaN
         data['data'] = preprocess_motion(data['data'])
 
         # generate positional data as numpy array
         data['npdata'] = np.array([data['data']['x_pos'], data['data']['y_pos']]).T
-
         # generate velocity vector
         data['vel'] = get_velocity_vector(data)
 
-        plot_velocity_vector(data['vel'], data['data'].loc[1:]['time_stamp (in ms.)'])
+        plot_velocity_vector(data, ax_arr[0])
 
-        # Smooth the signal. window size is currently 1 second
-        win_size = int(len(data['vel']) / data['time_length']) if int(len(data['vel']) / data['time_length']) % 2 == 1\
-                    else int(len(data['vel']) / data['time_length']) + 1
-        data['vel_smooth'] = savgol_filter(data['vel'], win_size, 3)
-        plot_velocity_vector(data['vel_smooth'], data['data'].loc[1:]['time_stamp (in ms.)'], title="Smooth velocity vector")
+        # Smooth the vector with Gaussian Filter
+        data['vel_filtered'] = gaussian_filter1d(data['vel'], 1)
+        data['vel_filtered'] = data['vel']
+        plot_velocity_vector(data, ax_arr[1], filtered=True)
 
-        # Calculate dft on the smooth velocity vector and plot it
-        data_dft_x, data_dft_y = get_fft(data['vel_smooth'])
-        plot_fft(data_dft_x, data_dft_y)
+        # Find the peaks (minima) of the velocity vector
+        data['peaks'], _ = signal.find_peaks(-(data['vel_filtered']), height=-np.inf)
+        plot_peaks(data, ax_arr[2])
+        # Save the peaks time_stamp as a .csv file for the Tapping Interval Analysis
+        # data['peaks_time_stamps'] = data['data']['time_stamp (in ms.)']\
+        # .reset_index().loc[data['peaks']].rename(columns = {"time_stamp (in ms.)" : "natRhythmTap (in ms.)"})
+        # data['peaks_time_stamps'].to_csv(path[:-4] + "_peaks_int.csv")
+
+
+def velocity_and_FFT(files):
+    fig, axs = plt.subplots(3, len(files))
+
+    axs[0][0].annotate("Velocity:", xy=(0, 0.5), xytext=(-axs[0][0].yaxis.labelpad - 5, 0),
+                       xycoords=axs[0][0].yaxis.label, textcoords='offset points',
+                       size='large', ha='right', va='center')
+    axs[1][0].annotate("Smooth:", xy=(0, 0.5), xytext=(-axs[1][0].yaxis.labelpad - 5, 0),
+                       xycoords=axs[1][0].yaxis.label, textcoords='offset points',
+                       size='large', ha='right', va='center')
+    axs[2][0].annotate("Peaks:", xy=(0, 0.5), xytext=(-axs[2][0].yaxis.labelpad - 5, 0),
+                       xycoords=axs[2][0].yaxis.label, textcoords='offset points',
+                       size='large', ha='right', va='center')
+
+    for file, ax in zip(files, axs.T):
+        plot_analyze(file, ax)
+
+    plt.show()
+
+if __name__ == "__main__":
+
+    circles_not_consist = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s01_hg_0\Circles_1.csv"
+    circles_consist = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s02_lg_0\Circles_2.csv"
+    c = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s04_ak_0\Circles_1.csv"
+    files = [circles_not_consist, circles_consist]
+
+    velocity_and_FFT(files)
+
+
+
 
 
 
