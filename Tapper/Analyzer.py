@@ -209,7 +209,7 @@ def plot_analyze(path, ax_arr, animate=False):
     #   time_perspective : <String>; integer of time the subject thought that passed, in sec.
     data = extract_data(path)
 
-    ax_arr[0].set_title("subject: %s, trial: %s" % (data['name'], data['trial']))
+    ax_arr[0].set_title("subject: %s, task: %s, trial: %s" % (data['name'], data['session'], data['trial']))
 
     if animate:
         animate_free_movement(data)
@@ -263,14 +263,13 @@ def analyze_velocity(files):
     plt.show()
 
 if __name__ == "__main__":
-
-    f1 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s01_hg_0\Circles_2.csv"
-    f2 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s02_lg_0\Circles_2.csv"
-    # f3 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s03_yk_0\Circles_2.csv"
-    f4 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s04_ak_0\Circles_2.csv"
-    f5 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s05_nt_0\Circles_2.csv"
-    f6 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s07_nd_0\Circles_2.csv"
-    files = [f1, f2, f4, f5, f6]
+    task1 = 'Motion_1'
+    task2 = 'Circles_2'
+    f1 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s02_lg_0\%s.csv" % task1
+    f2 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s02_lg_0\%s.csv" % task2
+    f4 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s07_nd_0\%s.csv" % task1
+    f5 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s07_nd_0\%s.csv" % task2
+    files = [f1, f2, f4, f5]
 
     analyze_velocity(files)
 
