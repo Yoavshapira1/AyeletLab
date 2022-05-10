@@ -263,13 +263,21 @@ def analyze_velocity(files):
     plt.show()
 
 if __name__ == "__main__":
-    task1 = 'Motion_1'
-    task2 = 'Circles_2'
-    f1 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s02_lg_0\%s.csv" % task1
-    f2 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s02_lg_0\%s.csv" % task2
-    f4 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s07_nd_0\%s.csv" % task1
-    f5 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s07_nd_0\%s.csv" % task2
-    files = [f1, f2, f4, f5]
+    base = r'C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data'
+
+    subj1 = r'\s02_lg_0'
+    subj2 = r'\s07_nd_0'
+
+    M1 = r'\Motion_1'
+    M2 = r'\Motion_2'
+    C1 = r'\Circles_1'
+    C2 = r'\Circles_2'
+
+    f1 = base + subj1 + M1 + r".csv"
+    f2 = base + subj1 + C2 + r".csv"
+    f3 = base + subj2 + M1 + r".csv"
+    f4 = base + subj2 + C2 + r".csv"
+    files = [f1, f2, f3, f4]
 
     analyze_velocity(files)
 
