@@ -7,12 +7,18 @@ from matplotlib.animation import FuncAnimation
 from scipy import signal
 from scipy.ndimage import gaussian_filter1d
 
+################# animation parameters ####################
 ANIMATION_TAIL = 30         # Tail of the animation factor
 ANIMATION_SPEED = 0.2       # FastForWard factor
 FRAME_COUNTER = 0           # don't change this
 
+############### pre-process parameters ####################
 TRIM_SEC = 2               # time of the beginning of the trial to be cut, in sec.
 CHUNK_SAMPLES = 1
+
+############## velocity process parameters ################
+VELOCITY_FILTER_SIZE = 3
+INTERVALS_BINS = 20
 
 # TODO : fix data trimming without time_length signature
 # TODO: ignore the file if the data is trimmed in the end al lot
@@ -169,18 +175,21 @@ def plot_peaks(data, ax):
     ax.plot(data['vel'])
     ax.plot(data['peaks'], data['vel'][data['peaks']], "x")
 
+def plot_interval_hist(data, ax):
+    ax.set(xlabel="ms.", ylabel="#")
+    ax.hist(data['intervals'], bins=INTERVALS_BINS)
 
 def plot_analyze(path, ax_arr, animate=False):
 
     # Extract the data into a dictionary structure with the next keys:
     #   session          : <String>; one of: "FREE MOTION", "CIRCLES", "TAPPER"
     #   data             : <pd.DataFrame>; columns corresponding to CSV_COLS_PER_TASK(session)
-    #   n_samples        : <Integer>; number of samples in the data
+    #   n_samples        : <String>; integer of number of samples in the data
     #   name             : <String>; name of the subject
-    #   number           : <String>; number of subject
-    #   trial            : <Integer>; number of the trial
-    #   time_length      : <Integer>; total time the trial took, in sec.
-    #   time_perspective : <Integer>; time the subject thought that passed, in sec.
+    #   number           : <String>; integer of number of subject
+    #   trial            : <String>; integer of number of the trial
+    #   time_length      : <String>; integer of total time the trial took, in sec.
+    #   time_perspective : <String>; integer of time the subject thought that passed, in sec.
     data = extract_data(path)
 
     ax_arr[0].set_title("subject: %s, trial: %s" % (data['name'], data['trial']))
@@ -200,31 +209,34 @@ def plot_analyze(path, ax_arr, animate=False):
         plot_velocity_vector(data, ax_arr[0])
 
         # Smooth the vector with Gaussian Filter
-        data['vel_filtered'] = gaussian_filter1d(data['vel'], 1)
-        data['vel_filtered'] = data['vel']
+        data['vel_filtered'] = gaussian_filter1d(data['vel'], VELOCITY_FILTER_SIZE)
         plot_velocity_vector(data, ax_arr[1], filtered=True)
 
         # Find the peaks (minima) of the velocity vector
         data['peaks'], _ = signal.find_peaks(-(data['vel_filtered']), height=-np.inf)
         plot_peaks(data, ax_arr[2])
-        # Save the peaks time_stamp as a .csv file for the Tapping Interval Analysis
+        ### Save the peaks time_stamp as a .csv file for the Tapping Interval Analysis
         # data['peaks_time_stamps'] = data['data']['time_stamp (in ms.)']\
         # .reset_index().loc[data['peaks']].rename(columns = {"time_stamp (in ms.)" : "natRhythmTap (in ms.)"})
         # data['peaks_time_stamps'].to_csv(path[:-4] + "_peaks_int.csv")
 
+        p = data['data']['time_stamp (in ms.)'][data['peaks']].copy()
+        data['intervals'] = p[1:].copy().reset_index(drop=True).subtract(p[:-1].copy().reset_index(drop=True))
+        plot_interval_hist(data, ax_arr[3])
+
+def init_axis(ax, title):
+    ax.annotate(title, xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - 5, 0),
+                       xycoords=ax.yaxis.label, textcoords='offset points',
+                       size='large', ha='right', va='center')
 
 def velocity_and_FFT(files):
-    fig, axs = plt.subplots(3, len(files))
+    axis_slots = 4
+    fig, axs = plt.subplots(axis_slots, len(files))
 
-    axs[0][0].annotate("Velocity:", xy=(0, 0.5), xytext=(-axs[0][0].yaxis.labelpad - 5, 0),
-                       xycoords=axs[0][0].yaxis.label, textcoords='offset points',
-                       size='large', ha='right', va='center')
-    axs[1][0].annotate("Smooth:", xy=(0, 0.5), xytext=(-axs[1][0].yaxis.labelpad - 5, 0),
-                       xycoords=axs[1][0].yaxis.label, textcoords='offset points',
-                       size='large', ha='right', va='center')
-    axs[2][0].annotate("Peaks:", xy=(0, 0.5), xytext=(-axs[2][0].yaxis.labelpad - 5, 0),
-                       xycoords=axs[2][0].yaxis.label, textcoords='offset points',
-                       size='large', ha='right', va='center')
+    init_axis(axs[0][0], "Velocity:")
+    init_axis(axs[1][0], "Smooth:")
+    init_axis(axs[2][0], "Peaks:")
+    init_axis(axs[3][0], "Intervals hist.:")
 
     for file, ax in zip(files, axs.T):
         plot_analyze(file, ax)
@@ -233,10 +245,10 @@ def velocity_and_FFT(files):
 
 if __name__ == "__main__":
 
-    circles_not_consist = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s01_hg_0\Circles_1.csv"
+    circles_not_consist = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s07_nd_0\Circles_2.csv"
     circles_consist = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s02_lg_0\Circles_2.csv"
-    c = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s04_ak_0\Circles_1.csv"
-    files = [circles_not_consist, circles_consist]
+    c = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s05_nt_0\Circles_2.csv"
+    files = [circles_not_consist, circles_consist, c]
 
     velocity_and_FFT(files)
 
