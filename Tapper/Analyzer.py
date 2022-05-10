@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import scipy.stats
+
 from util import CSV_COLS_PER_TASK as head_lines
 from util import CIRCLES, FREE_MOTION, TAPPER
 import matplotlib.pyplot as plt
@@ -14,11 +16,13 @@ FRAME_COUNTER = 0           # don't change this
 
 ############### pre-process parameters ####################
 TRIM_SEC = 2               # time of the beginning of the trial to be cut, in sec.
-CHUNK_SAMPLES = 1
+CHUNK_SAMPLES = 1          # bulking factor of the samples
 
 ############## velocity process parameters ################
-VELOCITY_FILTER_SIZE = 3
-INTERVALS_BINS = 20
+MULTIPY_FACTOR = 1000      # velocity values are to be multiplied by this value to get realizable values
+VELOCITY_FILTER_SIZE = 3   # gaussian filtering factor
+INTERVALS_BINS = 20        # bins for the intervals histogram
+COLORS = {'vel' : 'C0', 'vel_smooth' : 'C1', 'vel_filtered' : 'C2'}
 
 # TODO : fix data trimming without time_length signature
 # TODO: ignore the file if the data is trimmed in the end al lot
@@ -122,7 +126,7 @@ def preprocess_motion(data):
 def get_velocity_vector(data):
     dt = np.array(data['data']['time_stamp (in ms.)'][1:]) - np.array(data['data']['time_stamp (in ms.)'][:-1])
     dist = np.linalg.norm(data['npdata'][1:] - data['npdata'][:-1], axis=1)
-    return dist / dt
+    return dist / dt * MULTIPY_FACTOR
 
 
 def get_fft(one_d_data, bp_width=None):
@@ -154,30 +158,43 @@ def plot_velocity_vector(data, ax, smooth=False, filtered=False):
     time_stamp = data['data'].loc[1:]['time_stamp (in ms.)']
     if smooth:
         vec = data['vel_smooth']
+        c = COLORS['vel_smooth']
     elif filtered:
         vec = data['vel_filtered']
+        c = COLORS['vel_filtered']
     else:
         vec = data['vel']
+        ax.plot([], [], ' ', label=r'$\mu$: %.2f.  $\sigma^2$: %.2f' % (np.mean(vec), np.var(vec)))
+        ax.legend()
+        c = COLORS['vel']
+
     ax.set_yticks([])
     ax.set(xlabel="ms.", ylabel="Vel.")
-    ax.plot(time_stamp, vec)
-    ax.plot([], [], ' ', label="Maximum difference: %.4f" % (np.max(vec) - np.min(vec)))
-    ax.legend()
-
+    ax.plot(time_stamp, vec, c=c)
 
 def plot_fft(x_dft, y_dft, ax):
     ax.set(xlabel="Freq.", ylabel="Amp.")
     ax.plot(x_dft, y_dft)
 
-
 def plot_peaks(data, ax):
+    ax.set_yticks([])
     ax.set(xlabel="ms.", ylabel="vel.")
     ax.plot(data['vel'])
     ax.plot(data['peaks'], data['vel'][data['peaks']], "x")
 
 def plot_interval_hist(data, ax):
-    ax.set(xlabel="ms.", ylabel="#")
-    ax.hist(data['intervals'], bins=INTERVALS_BINS)
+    ax.set_yticks([])
+    x = data['intervals']
+    ax.hist(x, density=True, bins=INTERVALS_BINS)
+    mn, mx = ax.set_xlim()
+    ax.set_xlim(mn, mx)
+    kde_xs = np.linspace(mn, mx, 300)
+    kde = scipy.stats.gaussian_kde(x)
+    pdf = kde.pdf(kde_xs)
+    ax.plot(kde_xs, pdf)
+    ax.plot([], [], ' ', label=r'$\mu$: %.0f.  $\sigma^2$: %.0f' % (np.mean(x), np.var(x)))
+    ax.legend(loc='upper left', prop={'size': 8})
+    ax.set(xlabel="ms.")
 
 def plot_analyze(path, ax_arr, animate=False):
 
@@ -201,12 +218,14 @@ def plot_analyze(path, ax_arr, animate=False):
     if data['session'] in [FREE_MOTION, CIRCLES]:
         data['data'] = preprocess_motion(data['data'])
 
+
         # generate positional data as numpy array
         data['npdata'] = np.array([data['data']['x_pos'], data['data']['y_pos']]).T
         # generate velocity vector
         data['vel'] = get_velocity_vector(data)
 
         plot_velocity_vector(data, ax_arr[0])
+
 
         # Smooth the vector with Gaussian Filter
         data['vel_filtered'] = gaussian_filter1d(data['vel'], VELOCITY_FILTER_SIZE)
@@ -220,7 +239,7 @@ def plot_analyze(path, ax_arr, animate=False):
         # .reset_index().loc[data['peaks']].rename(columns = {"time_stamp (in ms.)" : "natRhythmTap (in ms.)"})
         # data['peaks_time_stamps'].to_csv(path[:-4] + "_peaks_int.csv")
 
-        p = data['data']['time_stamp (in ms.)'][data['peaks']].copy()
+        p = (data['data']['time_stamp (in ms.)'].reset_index(drop=True))[data['peaks']]
         data['intervals'] = p[1:].copy().reset_index(drop=True).subtract(p[:-1].copy().reset_index(drop=True))
         plot_interval_hist(data, ax_arr[3])
 
@@ -229,7 +248,7 @@ def init_axis(ax, title):
                        xycoords=ax.yaxis.label, textcoords='offset points',
                        size='large', ha='right', va='center')
 
-def velocity_and_FFT(files):
+def analyze_velocity(files):
     axis_slots = 4
     fig, axs = plt.subplots(axis_slots, len(files))
 
@@ -245,12 +264,15 @@ def velocity_and_FFT(files):
 
 if __name__ == "__main__":
 
-    circles_not_consist = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s07_nd_0\Circles_2.csv"
-    circles_consist = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s02_lg_0\Circles_2.csv"
-    c = r"R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r\s05_nt_0\Circles_2.csv"
-    files = [circles_not_consist, circles_consist, c]
+    f1 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s01_hg_0\Circles_2.csv"
+    f2 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s02_lg_0\Circles_2.csv"
+    # f3 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s03_yk_0\Circles_2.csv"
+    f4 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s04_ak_0\Circles_2.csv"
+    f5 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s05_nt_0\Circles_2.csv"
+    f6 = r"C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data\s07_nd_0\Circles_2.csv"
+    files = [f1, f2, f4, f5, f6]
 
-    velocity_and_FFT(files)
+    analyze_velocity(files)
 
 
 
