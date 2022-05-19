@@ -263,7 +263,7 @@ def analyze_velocity(files):
     plt.show()
 
 if __name__ == "__main__":
-    base = r'C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data'
+    base = r'R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r'
 
     subj1 = r'\s02_lg_0'
     subj2 = r'\s07_nd_0'
