@@ -19,9 +19,20 @@ TRIM_SEC = 2               # time of the beginning of the trial to be cut, in se
 CHUNK_SAMPLES = 1          # bulking factor of the samples
 
 ############## velocity process parameters ################
-MULTIPY_FACTOR = 1000      # velocity values are to be multiplied by this value to get realizable values
-VELOCITY_FILTER_SIZE = 3   # gaussian filtering factor
+MULTIPY_FACTOR = 1000      # velocity values are to be multiplied by this value to get human-realizable values
+
+# The next variables are for the filter size of the velocity vector.
+# Define the points on the circle where the velocity on the axis decreases as 'intentionally slowing' points.
+# The faster the movement --> The less 'noisy' points (which are not intentionally slowing) on the velocity vector
+# Therefor, The slower the movement --> The bigger filter size required to detect the intentionally slowing and
+# extract the peaks for the intervals analyzing.
+# Here, an arbitrary mean (of velocity) chosen from observations, and this value requires minial filtering.
+# Every 0.1 below this value requires more 1 filter size
+VELOCITY_FILTER_SIZE = 3
+DEFAULT_VEL_MEAN = 1.3
+
 INTERVALS_BINS = 20        # bins for the intervals histogram
+OUTLIERS_TOL = 1               # tolerance for outliers
 COLORS = {'vel' : 'C0', 'vel_smooth' : 'C1', 'vel_filtered' : 'C2'}
 
 # TODO : fix data trimming without time_length signature
@@ -64,6 +75,8 @@ def extract_data(path):
 
     return dict
 
+def normalize_arr(arr):
+    return (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
 
 def animate_free_movement(data_dict):
     """Animate the coordinates of a single session"""
@@ -73,16 +86,17 @@ def animate_free_movement(data_dict):
     session = data_dict['session']
     n_samples = data_dict['n_samples']
     time_length = data_dict['time_length']
+    vel = np.around(normalize_arr(data_dict['vel']), decimals=1)
 
     if session not in [FREE_MOTION, CIRCLES]:
         raise Exception("Function 'animate_free_movement' can only work with data from sessions 'FREE_MOTION' or 'CIRCLES'")
 
-    data = np.array([data_dict['data']['x_pos'], data_dict['data']['y_pos']]).T
+    data = data_dict['npdata'][1:]
 
     fig, ax = plt.subplots(figsize=(16,9))
     ax.set_title("subject: %s, %s session number %d" % (name, session, int(trial)+1), fontdict=None, loc='center', pad=None)
-    xdata, ydata = [], []
-    ln, = plt.plot([], [], 'ro')
+    xdata, ydata, col = [], [], []
+    ln, = plt.plot([], [], 'o')
     global FRAME_COUNTER
     FRAME_COUNTER = len(data)
 
@@ -101,13 +115,15 @@ def animate_free_movement(data_dict):
             plt.close(fig)
         xdata.append(frame[0])
         ydata.append(frame[1])
+        # TODO: mapping velocity vector to colors
+        col.append('%f' % vel[-FRAME_COUNTER])
         ln.set_data(xdata[-ANIMATION_TAIL:], ydata[-ANIMATION_TAIL:])
+        ln.set_color(col[-ANIMATION_TAIL:])
         return ln,
 
     ani = FuncAnimation(fig, update, frames=data, init_func=init,
                         interval=time_length / n_samples / ANIMATION_SPEED, blit=True, repeat=False)
     plt.show()
-
 
 def preprocess_motion(data):
 
@@ -185,16 +201,27 @@ def plot_peaks(data, ax):
 def plot_interval_hist(data, ax):
     ax.set_yticks([])
     x = data['intervals']
-    ax.hist(x, density=True, bins=INTERVALS_BINS)
+    mu, sd = np.mean(x), np.sqrt(np.var(x))
+    x = x[x >= np.abs(mu - (OUTLIERS_TOL * sd))]
+    density, bins, patches = ax.hist(x, density=True, bins=INTERVALS_BINS)
+    # clean outliers
+
     mn, mx = ax.set_xlim()
     ax.set_xlim(mn, mx)
     kde_xs = np.linspace(mn, mx, 300)
     kde = scipy.stats.gaussian_kde(x)
     pdf = kde.pdf(kde_xs)
     ax.plot(kde_xs, pdf)
-    ax.plot([], [], ' ', label=r'$\mu$: %.0f.  $\sigma^2$: %.0f' % (np.mean(x), np.var(x)))
+    ax.plot([], [], ' ', label=r'$\mu$: %.0f.  $\sigma$: %.0f' % (np.mean(x), np.sqrt(np.var(x))))
     ax.legend(loc='upper left', prop={'size': 8})
     ax.set(xlabel="ms.")
+
+def plot_smooth_vec(data, ax):
+    mean = np.mean(data['vel'])
+    filter_size = int(VELOCITY_FILTER_SIZE + (0 if mean > DEFAULT_VEL_MEAN else 14 * np.abs(mean - DEFAULT_VEL_MEAN)))
+    print(filter_size)
+    data['vel_filtered'] = gaussian_filter1d(data['vel'], filter_size)
+    plot_velocity_vector(data, ax[1], filtered=True)
 
 def plot_analyze(path, ax_arr, animate=False):
 
@@ -211,25 +238,17 @@ def plot_analyze(path, ax_arr, animate=False):
 
     ax_arr[0].set_title("subject: %s, task: %s, trial: %s" % (data['name'], data['session'], data['trial']))
 
-    if animate:
-        animate_free_movement(data)
-
     # analyze motion data
     if data['session'] in [FREE_MOTION, CIRCLES]:
         data['data'] = preprocess_motion(data['data'])
-
 
         # generate positional data as numpy array
         data['npdata'] = np.array([data['data']['x_pos'], data['data']['y_pos']]).T
         # generate velocity vector
         data['vel'] = get_velocity_vector(data)
-
         plot_velocity_vector(data, ax_arr[0])
-
-
         # Smooth the vector with Gaussian Filter
-        data['vel_filtered'] = gaussian_filter1d(data['vel'], VELOCITY_FILTER_SIZE)
-        plot_velocity_vector(data, ax_arr[1], filtered=True)
+        plot_smooth_vec(data, ax_arr)
 
         # Find the peaks (minima) of the velocity vector
         data['peaks'], _ = signal.find_peaks(-(data['vel_filtered']), height=-np.inf)
@@ -243,43 +262,45 @@ def plot_analyze(path, ax_arr, animate=False):
         data['intervals'] = p[1:].copy().reset_index(drop=True).subtract(p[:-1].copy().reset_index(drop=True))
         plot_interval_hist(data, ax_arr[3])
 
+    if animate:
+        animate_free_movement(data)
+
 def init_axis(ax, title):
     ax.annotate(title, xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - 5, 0),
                        xycoords=ax.yaxis.label, textcoords='offset points',
                        size='large', ha='right', va='center')
 
-def analyze_velocity(files):
+def analyze_velocity(files, animate=False):
     axis_slots = 4
-    fig, axs = plt.subplots(axis_slots, len(files))
-
-    init_axis(axs[0][0], "Velocity:")
-    init_axis(axs[1][0], "Smooth:")
-    init_axis(axs[2][0], "Peaks:")
-    init_axis(axs[3][0], "Intervals hist.:")
-
-    for file, ax in zip(files, axs.T):
-        plot_analyze(file, ax)
-
+    if len(files) > 1:
+        fig, axs = plt.subplots(axis_slots, len(files))
+        init_axis(axs[0][0], "Velocity:")
+        init_axis(axs[1][0], "Smooth:")
+        init_axis(axs[2][0], "Peaks:")
+        init_axis(axs[3][0], "Intervals hist.:")
+        for file, ax in zip(files, axs.T):
+            plot_analyze(file, ax, animate)
+    else:
+        plot_analyze(files[0], plt.subplots(4,1)[1], animate)
     plt.show()
 
 if __name__ == "__main__":
-    base = r'R:\Experiments\resoFreq_vis_BEH\Glass_Tapper\Data_r'
+    base = r'C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data'
 
-    subj1 = r'\s02_lg_0'
-    subj2 = r'\s07_nd_0'
+    subj1 = r'\Yoav_slow_1'
+    subj2 = r'\yoav_120sec_round_0'
 
     M1 = r'\Motion_1'
     M2 = r'\Motion_2'
     C1 = r'\Circles_1'
     C2 = r'\Circles_2'
 
-    f1 = base + subj1 + M1 + r".csv"
-    f2 = base + subj1 + C2 + r".csv"
-    f3 = base + subj2 + M1 + r".csv"
-    f4 = base + subj2 + C2 + r".csv"
-    files = [f1, f2, f3, f4]
+    f1 = base + subj1 + C1 + r".csv"
+    f2 = base + subj2 + C1 + r".csv"
 
-    analyze_velocity(files)
+    files = [f1, f2]
+
+    analyze_velocity(files, True)
 
 
 
