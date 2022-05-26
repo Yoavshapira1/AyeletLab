@@ -1,16 +1,19 @@
 import pandas as pd
 import numpy as np
 import scipy.stats
+from matplotlib.collections import LineCollection
+from matplotlib.colors import BoundaryNorm, Colormap, ListedColormap
 
 from util import CSV_COLS_PER_TASK as head_lines
 from util import CIRCLES, FREE_MOTION, TAPPER
 import matplotlib.pyplot as plt
+from matplotlib import pylab as pl, cm
 from matplotlib.animation import FuncAnimation
 from scipy import signal
 from scipy.ndimage import gaussian_filter1d
 
 ################# animation parameters ####################
-ANIMATION_TAIL = 30         # Tail of the animation factor
+ANIMATION_TAIL = 90         # Tail of the animation factor
 ANIMATION_SPEED = 0.2       # FastForWard factor
 FRAME_COUNTER = 0           # don't change this
 
@@ -86,7 +89,8 @@ def animate_free_movement(data_dict):
     session = data_dict['session']
     n_samples = data_dict['n_samples']
     time_length = data_dict['time_length']
-    vel = np.around(normalize_arr(data_dict['vel']), decimals=1)
+    vel = normalize_arr(data_dict['vel'])
+
 
     if session not in [FREE_MOTION, CIRCLES]:
         raise Exception("Function 'animate_free_movement' can only work with data from sessions 'FREE_MOTION' or 'CIRCLES'")
@@ -100,11 +104,14 @@ def animate_free_movement(data_dict):
     global FRAME_COUNTER
     FRAME_COUNTER = len(data)
 
+    viridis = cm.get_cmap('viridis', len(vel))
+    cmap = viridis(vel, len(vel))
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+
     def init():
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
         return ln,
 
     def update(frame):
@@ -115,15 +122,16 @@ def animate_free_movement(data_dict):
             plt.close(fig)
         xdata.append(frame[0])
         ydata.append(frame[1])
-        # TODO: mapping velocity vector to colors
         col.append('%f' % vel[-FRAME_COUNTER])
         ln.set_data(xdata[-ANIMATION_TAIL:], ydata[-ANIMATION_TAIL:])
-        ln.set_color(col[-ANIMATION_TAIL:])
+        ln.set_color(cmap[-FRAME_COUNTER])
         return ln,
 
     ani = FuncAnimation(fig, update, frames=data, init_func=init,
                         interval=time_length / n_samples / ANIMATION_SPEED, blit=True, repeat=False)
+
     plt.show()
+
 
 def preprocess_motion(data):
 
@@ -195,23 +203,22 @@ def plot_fft(x_dft, y_dft, ax):
 def plot_peaks(data, ax):
     ax.set_yticks([])
     ax.set(xlabel="ms.", ylabel="vel.")
-    ax.plot(data['vel'])
-    ax.plot(data['peaks'], data['vel'][data['peaks']], "x")
+    ax.plot(data['vel'], alpha=1)
+    ax.scatter(data['peaks'], data['vel'][data['peaks']], marker="x", color='Orange', zorder=2, edgecolors='black')
 
 def plot_interval_hist(data, ax):
     ax.set_yticks([])
     x = data['intervals']
     mu, sd = np.mean(x), np.sqrt(np.var(x))
-    x = x[x >= np.abs(mu - (OUTLIERS_TOL * sd))]
-    density, bins, patches = ax.hist(x, density=True, bins=INTERVALS_BINS)
-    # clean outliers
+    x = x[x >= np.abs(mu - (OUTLIERS_TOL * sd))]        # clean outliers
+    density, bins, patches = ax.hist(x, density=True, bins=INTERVALS_BINS, edgecolor='black', linewidth=1., color='Orange')
 
     mn, mx = ax.set_xlim()
     ax.set_xlim(mn, mx)
     kde_xs = np.linspace(mn, mx, 300)
     kde = scipy.stats.gaussian_kde(x)
     pdf = kde.pdf(kde_xs)
-    ax.plot(kde_xs, pdf)
+    ax.plot(kde_xs, pdf, c='r', alpha=0.5)
     ax.plot([], [], ' ', label=r'$\mu$: %.0f.  $\sigma$: %.0f' % (np.mean(x), np.sqrt(np.var(x))))
     ax.legend(loc='upper left', prop={'size': 8})
     ax.set(xlabel="ms.")
@@ -219,9 +226,12 @@ def plot_interval_hist(data, ax):
 def plot_smooth_vec(data, ax):
     mean = np.mean(data['vel'])
     filter_size = int(VELOCITY_FILTER_SIZE + (0 if mean > DEFAULT_VEL_MEAN else 14 * np.abs(mean - DEFAULT_VEL_MEAN)))
-    print(filter_size)
     data['vel_filtered'] = gaussian_filter1d(data['vel'], filter_size)
     plot_velocity_vector(data, ax[1], filtered=True)
+
+def plot_peaks_mapping(data, ax_arr):
+    ax = ax_arr[0, 1, 2, 3].get_gridspec()
+    ax.plot(data['npdata'])
 
 def plot_analyze(path, ax_arr, animate=False):
 
@@ -262,8 +272,10 @@ def plot_analyze(path, ax_arr, animate=False):
         data['intervals'] = p[1:].copy().reset_index(drop=True).subtract(p[:-1].copy().reset_index(drop=True))
         plot_interval_hist(data, ax_arr[3])
 
-    if animate:
-        animate_free_movement(data)
+        if animate:
+            animate_free_movement(data)
+
+    return data
 
 def init_axis(ax, title):
     ax.annotate(title, xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - 5, 0),
@@ -272,22 +284,41 @@ def init_axis(ax, title):
 
 def analyze_velocity(files, animate=False):
     axis_slots = 4
-    if len(files) > 1:
+    map = False if len(files) > 1 else True
+    if not map:
         fig, axs = plt.subplots(axis_slots, len(files))
-        init_axis(axs[0][0], "Velocity:")
-        init_axis(axs[1][0], "Smooth:")
-        init_axis(axs[2][0], "Peaks:")
-        init_axis(axs[3][0], "Intervals hist.:")
-        for file, ax in zip(files, axs.T):
-            plot_analyze(file, ax, animate)
     else:
-        plot_analyze(files[0], plt.subplots(4,1)[1], animate)
+        fig, axs = plt.subplots(axis_slots, 2)
+
+    # plot the velocity, filtered vel., minimum velocity peaks, and histogram of the intervals
+    init_axis(axs[0][0], "Velocity:")
+    init_axis(axs[1][0], "Smooth:")
+    init_axis(axs[2][0], "Peaks:")
+    init_axis(axs[3][0], "Intervals hist.:")
+    for file, ax in zip(files, axs.T):
+        data = plot_analyze(file, ax, animate)
+
+    if map:
+        # plot the velocity peaks of the data on the movements shape. not that peaks are MINIMA points
+        gs = axs[1, 1].get_gridspec()
+        # remove the underlying axes
+        for ax in axs[0:, -1]:
+            ax.remove()
+        axbig = fig.add_subplot(gs[1:, -2])
+        axbig.set_xlim(0, 16/9)
+        axbig.set_ylim(0, 1)
+        axbig.get_xaxis().set_visible(False)
+        axbig.get_yaxis().set_visible(False)
+        axbig.set_title("Minimal velocity points (including outliers) along the move")
+        axbig.scatter(data['npdata'][:,0], data['npdata'][:,1], alpha=0.8)
+        axbig.scatter(data['npdata'][:,0][data['peaks']], data['npdata'][:,1][data['peaks']], marker="x", color='Orange', zorder=2, edgecolors='black', linewidths=3.5)
+
     plt.show()
 
 if __name__ == "__main__":
-    base = r'C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data'
+    base = r'C:\Users\yoavsha\Desktop\LSL\Tapper\Data'
 
-    subj1 = r'\Yoav_slow_1'
+    subj1 = r'\yoav_30sec_round_0'
     subj2 = r'\yoav_120sec_round_0'
 
     M1 = r'\Motion_1'
@@ -298,9 +329,9 @@ if __name__ == "__main__":
     f1 = base + subj1 + C1 + r".csv"
     f2 = base + subj2 + C1 + r".csv"
 
-    files = [f1, f2]
+    files = [f2]
 
-    analyze_velocity(files, True)
+    analyze_velocity(files, False)
 
 
 
