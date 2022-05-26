@@ -34,8 +34,8 @@ MULTIPY_FACTOR = 1000      # velocity values are to be multiplied by this value 
 VELOCITY_FILTER_SIZE = 3
 DEFAULT_VEL_MEAN = 1.3
 
-INTERVALS_BINS = 20        # bins for the intervals histogram
-OUTLIERS_TOL = 1               # tolerance for outliers
+INTERVALS_BINS = 20            # bins for the intervals histogram
+OUTLIERS_TOL = 1               # tolerance for outliers. POSITIVE INTEGER
 COLORS = {'vel' : 'C0', 'vel_smooth' : 'C1', 'vel_filtered' : 'C2'}
 
 # TODO : fix data trimming without time_length signature
@@ -178,7 +178,7 @@ def get_fft(one_d_data, bp_width=None):
 
     return fft_freq*mask, np.abs(fft_amp*mask), filtered_signal
 
-def plot_velocity_vector(data, ax, smooth=False, filtered=False):
+def plot_velocity_vector(data, ax, fil_size=VELOCITY_FILTER_SIZE, smooth=False, filtered=False):
     time_stamp = data['data'].loc[1:]['time_stamp (in ms.)']
     if smooth:
         vec = data['vel_smooth']
@@ -186,12 +186,13 @@ def plot_velocity_vector(data, ax, smooth=False, filtered=False):
     elif filtered:
         vec = data['vel_filtered']
         c = COLORS['vel_filtered']
+        ax.plot([], [], ' ', label="filter size: %d" % fil_size)
     else:
         vec = data['vel']
         ax.plot([], [], ' ', label=r'$\mu$: %.2f.  $\sigma^2$: %.2f' % (np.mean(vec), np.var(vec)))
-        ax.legend()
         c = COLORS['vel']
 
+    ax.legend(loc='upper left', prop={'size': 8})
     ax.set_yticks([])
     ax.set(xlabel="ms.", ylabel="Vel.")
     ax.plot(time_stamp, vec, c=c)
@@ -204,7 +205,7 @@ def plot_peaks(data, ax):
     ax.set_yticks([])
     ax.set(xlabel="ms.", ylabel="vel.")
     ax.plot(data['vel'], alpha=1)
-    ax.scatter(data['peaks'], data['vel'][data['peaks']], marker="x", color='Orange', zorder=2, edgecolors='black')
+    ax.scatter(data['peaks'], data['vel'][data['peaks']], marker="^", color='Orange', zorder=2, linewidth=0.7, edgecolors='black')
 
 def plot_interval_hist(data, ax):
     ax.set_yticks([])
@@ -227,7 +228,7 @@ def plot_smooth_vec(data, ax):
     mean = np.mean(data['vel'])
     filter_size = int(VELOCITY_FILTER_SIZE + (0 if mean > DEFAULT_VEL_MEAN else 14 * np.abs(mean - DEFAULT_VEL_MEAN)))
     data['vel_filtered'] = gaussian_filter1d(data['vel'], filter_size)
-    plot_velocity_vector(data, ax[1], filtered=True)
+    plot_velocity_vector(data, ax[1], fil_size=filter_size, filtered=True)
 
 def plot_peaks_mapping(data, ax_arr):
     ax = ax_arr[0, 1, 2, 3].get_gridspec()
@@ -282,7 +283,7 @@ def init_axis(ax, title):
                        xycoords=ax.yaxis.label, textcoords='offset points',
                        size='large', ha='right', va='center')
 
-def analyze_velocity(files, animate=False):
+def analyze_velocity_peaks(files, animate=False):
     axis_slots = 4
     map = False if len(files) > 1 else True
     if not map:
@@ -300,25 +301,25 @@ def analyze_velocity(files, animate=False):
 
     if map:
         # plot the velocity peaks of the data on the movements shape. not that peaks are MINIMA points
-        gs = axs[1, 1].get_gridspec()
+        gs = axs[1, 0].get_gridspec()
         # remove the underlying axes
         for ax in axs[0:, -1]:
             ax.remove()
-        axbig = fig.add_subplot(gs[1:, -2])
-        axbig.set_xlim(0, 16/9)
-        axbig.set_ylim(0, 1)
+        axbig = fig.add_subplot(gs[0:, -1])
+        axbig.set_xlim(0, 1)
+        axbig.set_ylim(-1.2, 2.2)
         axbig.get_xaxis().set_visible(False)
         axbig.get_yaxis().set_visible(False)
         axbig.set_title("Minimal velocity points (including outliers) along the move")
         axbig.scatter(data['npdata'][:,0], data['npdata'][:,1], alpha=0.8)
-        axbig.scatter(data['npdata'][:,0][data['peaks']], data['npdata'][:,1][data['peaks']], marker="x", color='Orange', zorder=2, edgecolors='black', linewidths=3.5)
+        axbig.scatter(data['npdata'][:,0][data['peaks']], data['npdata'][:,1][data['peaks']], marker="^", color='Orange', zorder=2, edgecolors='black', linewidths=1.)
 
     plt.show()
 
 if __name__ == "__main__":
-    base = r'C:\Users\yoavsha\Desktop\LSL\Tapper\Data'
+    base = r'C:\Users\Dell\PycharmProjects\AyeletLab\Tapper\Data'
 
-    subj1 = r'\yoav_30sec_round_0'
+    subj1 = r'\s06_gb_0'
     subj2 = r'\yoav_120sec_round_0'
 
     M1 = r'\Motion_1'
@@ -326,12 +327,12 @@ if __name__ == "__main__":
     C1 = r'\Circles_1'
     C2 = r'\Circles_2'
 
-    f1 = base + subj1 + C1 + r".csv"
+    f1 = base + subj1 + M1 + r".csv"
     f2 = base + subj2 + C1 + r".csv"
 
     files = [f2]
 
-    analyze_velocity(files, False)
+    analyze_velocity_peaks(files, False)
 
 
 
