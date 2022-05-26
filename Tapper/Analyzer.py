@@ -219,11 +219,9 @@ def plot_peaks(data, ax):
     ax.set_xticks([])
     ax.set(ylabel="vel.")
     ax.plot(data['vel'], alpha=1)
-    print(np.setdiff1d(data['peaks'], data['high_peaks']))
-    low_peaks = data['npdata'][np.setdiff1d(data['peaks'], data['high_peaks'])]
-    print(low_peaks)
-    ax.scatter(low_peaks[0], data['vel'][low_peaks], marker="^", color='Orange', zorder=2, linewidth=0.7, edgecolors='black')
-    ax.scatter(data['high_peaks'], data['vel'][data['high_peaks']], marker='*', color='Orange', zorder=2, linewidth=0.7, edgecolors='black')
+    low_peaks_idx = np.setdiff1d(data['peaks'], data['high_peaks'])
+    ax.scatter(low_peaks_idx, data['vel'][low_peaks_idx], marker="^", color='Orange', zorder=2, linewidth=0.7, edgecolors='black')
+    ax.scatter(data['high_peaks'], data['vel'][data['high_peaks']], marker='o', color='red', zorder=2, linewidth=0.7, edgecolors='black')
 
 def plot_interval_hist(data, ax):
     ax.set_yticks([])
@@ -327,8 +325,8 @@ def analyze_velocity_peaks(files, animate=False):
         axbig.get_yaxis().set_visible(False)
         axbig.set_title("Minimal velocity points (including outliers) along the move")
         axbig.scatter(data['npdata'][:,0], data['npdata'][:,1], alpha=0.8)
-        axbig.scatter(data['npdata'][:,0][data['peaks']], data['npdata'][:,0][data['peaks']], marker="^", color='Orange', zorder=2, edgecolors='black', linewidths=1.)
-        axbig.scatter(data['npdata'][:,0][data['high_peaks']], data['npdata'][:,0][data['high_peaks']], marker='*', zorder=2)
+        axbig.scatter(data['npdata'][:,0][data['peaks']], data['npdata'][:,1][data['peaks']], marker="^", color='Orange', zorder=2, edgecolors='black', linewidths=1.)
+        axbig.scatter(data['npdata'][:,0][data['high_peaks']], data['npdata'][:,1][data['high_peaks']], marker="o", color='r', zorder=2, edgecolors='black', linewidths=1.)
 
     plt.show()
 
