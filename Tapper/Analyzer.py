@@ -10,8 +10,7 @@ from scipy import signal
 from scipy.ndimage import gaussian_filter1d
 from sklearn.cluster import KMeans
 
-# TODO: accurate the intervals: find a common spot (densest with points) and calculate intervals relatively to it
-# TODO: calculate intervals only for a whole circle
+# TODO: create intervals files: both for whole circle and for entire peaks set
 
 ################# animation parameters ####################
 ANIMATION_TAIL = 90         # Tail of the animation factor
@@ -45,13 +44,10 @@ COLORS = {'vel' : 'C0', 'vel_smooth' : 'C1', 'vel_filtered' : 'C2'}
 
 
 def extract_data(path):
-    """Extract the data from a given file (as path)
-    ":return ndarray contains the data. array shape changes due to the session:
-             For Free Motion/Circles sessions: (n_samples, 2) holds the (x,y) position of each sample
-             For Tapping:                      (n_samples, )  holds the timing of each sample
-     """
+    """Extract the data from a given file (as path)"""
     arr = path.split('\\')
     session = arr[-1].split('_')[0]
+    screen_type = "small" if arr[-1].split('_')[1].split('.')[0]=='1' else "big"
     col_list = head_lines[session]
     data = pd.read_csv(path, usecols=col_list)
     trial = data.iloc[0]['subject'].split('_')[-1]
@@ -70,6 +66,7 @@ def extract_data(path):
     dict = {
         "data": data,
         "session" : session,
+        "screen_type" : screen_type,
         "n_samples" : len(data),
         "number" : num,
         "name" : name,
@@ -203,25 +200,35 @@ def plot_fft(x_dft, y_dft, ax):
     ax.set(xlabel="Freq.", ylabel="Amp.")
     ax.plot(x_dft, y_dft)
 
-def find_circle_starts(data):
-    X = data['npdata'][data['peaks']]
-    KM = KMeans(n_clusters=4, random_state=0).fit(X)  # cluster to 4 groups - one for each direction
-    unique, indices, counts = np.unique(KM.labels_, return_counts=True,
-                                        return_inverse=True)  # extract labels and counters of groups
-    unique, counts = unique[:2], counts[:2]  # neglect the minor groups (which are the sides)
-    p1 = X[np.argwhere(KM.labels_ == unique[0])[0]]  # take an arbitrary points from group 1
-    p2 = X[np.argwhere(KM.labels_ == unique[1])[0]]  # take an arbitrary points from group 2
-    group = data['peaks'][indices == (0 if p1[0][1] > p2[0][1] else 1)]  # keep the group corresponds to the bigger y value
-    data['high_peaks'] = group
+def separate_high_peaks(data):
+    center_y = np.mean(data['npdata'][:, 1])
+
+    # for every peak P, check if the next points in data are in descending order in the y axis
+    # check out half of the points between two peaks
+    # if YES: insure that P_y is > center_y
+    res = []
+    for i in range(len(data['peaks'][:-1])):
+        p_cur = data['peaks'][i]
+        p_next = data['peaks'][i+1]
+        if data['npdata'][p_cur][1] > np.average(data['npdata'][p_cur:p_next][:, 1]) and data['npdata'][p_cur][1] > center_y:
+            res.append(p_cur)
+    p_last = data['peaks'][-1]
+    if data['npdata'][p_last][1] > np.average(data['npdata'][p_last:][:, 1]):
+        res.append(p_last)
+    data['high_peaks'] = np.array(res)
+    data['not_high_peaks'] = np.setdiff1d(data['peaks'], data['high_peaks'])
 
 def plot_peaks(data, ax):
     ax.set_yticks([])
     ax.set_xticks([])
     ax.set(ylabel="vel.")
     ax.plot(data['vel'], alpha=1)
-    low_peaks_idx = np.setdiff1d(data['peaks'], data['high_peaks'])
-    ax.scatter(low_peaks_idx, data['vel'][low_peaks_idx], marker="^", color='Orange', zorder=2, linewidth=0.7, edgecolors='black')
-    ax.scatter(data['high_peaks'], data['vel'][data['high_peaks']], marker='o', color='red', zorder=2, linewidth=0.7, edgecolors='black')
+    for x in data['high_peaks']:
+        ax.axvline(x, color='red', linestyle='--', linewidth=0.8)
+    for x in data['not_high_peaks']:
+        ax.axvline(x, color='Orange', linestyle='--', linewidth=0.8)
+    ax.scatter(data['not_high_peaks'], data['vel'][data['not_high_peaks']], marker="^", color='Orange', zorder=2, linewidth=0.3, edgecolors='black', s=20)
+    ax.scatter(data['high_peaks'], data['vel'][data['high_peaks']], marker='o', color='red', zorder=2, linewidth=0.3, edgecolors='black', s=20)
 
 def plot_interval_hist(data, ax):
     ax.set_yticks([])
@@ -232,10 +239,10 @@ def plot_interval_hist(data, ax):
 
     mn, mx = ax.set_xlim()
     ax.set_xlim(mn, mx)
-    kde_xs = np.linspace(mn, mx, 300)
-    kde = scipy.stats.gaussian_kde(x)
-    pdf = kde.pdf(kde_xs)
-    ax.plot(kde_xs, pdf, c='r', alpha=0.5)
+    # kde_xs = np.linspace(mn, mx, 300)
+    # kde = scipy.stats.gaussian_kde(x)
+    # pdf = kde.pdf(kde_xs)
+    # ax.plot(kde_xs, pdf, c='r', alpha=0.5)
     ax.plot([], [], ' ', label=r'$\mu$: %.0f.  $\sigma$: %.0f' % (np.mean(x), np.sqrt(np.var(x))))
     ax.legend(loc='upper left', prop={'size': 8})
     ax.set(xlabel="ms.")
@@ -258,8 +265,7 @@ def plot_analyze(path, ax_arr, animate=False):
     #   time_length      : <String>; integer of total time the trial took, in sec.
     #   time_perspective : <String>; integer of time the subject thought that passed, in sec.
     data = extract_data(path)
-
-    ax_arr[0].set_title("subject: %s, task: %s, trial: %s" % (data['name'], data['session'], data['trial']))
+    ax_arr[0].set_title("SUBJECT: %s, TASK: %s, SCREEN SIZE: %s" % (data['name'], data['session'], data['screen_type']))
 
     # analyze motion data
     if data['session'] in [FREE_MOTION, CIRCLES]:
@@ -275,14 +281,13 @@ def plot_analyze(path, ax_arr, animate=False):
 
         # Find the peaks (minima) of the velocity vector
         data['peaks'], _ = signal.find_peaks(PEAKS_SGN * (data['vel_filtered']), height=-np.inf)
-        find_circle_starts(data)
-        plot_peaks(data, ax_arr[2])
-        ### Save the peaks time_stamp as a .csv file for the Tapping Interval Analysis
-        # data['peaks_time_stamps'] = data['data']['time_stamp (in ms.)']\
-        # .reset_index().loc[data['peaks']].rename(columns = {"time_stamp (in ms.)" : "natRhythmTap (in ms.)"})
+        # data['peaks_time_stamps'] = data['data']['time_stamp (in ms.)'] \
+        #     .reset_index().loc[data['peaks']].rename(columns={"time_stamp (in ms.)": "natRhythmTap (in ms.)"})
         # data['peaks_time_stamps'].to_csv(path[:-4] + "_peaks_int.csv")
+        separate_high_peaks(data)
+        plot_peaks(data, ax_arr[2])
 
-        p = (data['data']['time_stamp (in ms.)'].reset_index(drop=True))[data['peaks']]
+        p = (data['data']['time_stamp (in ms.)'].reset_index(drop=True))[data['high_peaks']]
         data['intervals'] = p[1:].copy().reset_index(drop=True).subtract(p[:-1].copy().reset_index(drop=True))
         plot_interval_hist(data, ax_arr[3])
 
@@ -297,6 +302,7 @@ def init_axis(ax, title):
                        size='large', ha='right', va='center')
 
 def analyze_velocity_peaks(files, animate=False):
+    data = []
     axis_slots = 4
     map = False if len(files) > 1 else True
     if not map:
@@ -310,9 +316,10 @@ def analyze_velocity_peaks(files, animate=False):
     init_axis(axs[2][0], "Peaks:")
     init_axis(axs[3][0], "Intervals hist.:")
     for file, ax in zip(files, axs.T):
-        data = plot_analyze(file, ax, animate)
+        data.append(plot_analyze(file, ax, animate))
 
     if map:
+        data = data[0]
         # plot the velocity peaks of the data on the movements shape. not that peaks are MINIMA points
         gs = axs[1, 0].get_gridspec()
         # remove the underlying axes
@@ -325,30 +332,27 @@ def analyze_velocity_peaks(files, animate=False):
         axbig.get_yaxis().set_visible(False)
         axbig.set_title("Minimal velocity points (including outliers) along the move")
         axbig.scatter(data['npdata'][:,0], data['npdata'][:,1], alpha=0.8)
-        axbig.scatter(data['npdata'][:,0][data['peaks']], data['npdata'][:,1][data['peaks']], marker="^", color='Orange', zorder=2, edgecolors='black', linewidths=1.)
+        axbig.scatter(data['npdata'][:,0][data['not_high_peaks']], data['npdata'][:,1][data['not_high_peaks']], marker="^", color='Orange', zorder=2, edgecolors='black', linewidths=1.)
         axbig.scatter(data['npdata'][:,0][data['high_peaks']], data['npdata'][:,1][data['high_peaks']], marker="o", color='r', zorder=2, edgecolors='black', linewidths=1.)
 
     plt.show()
 
 if __name__ == "__main__":
     base = r'C:\Users\yoavsha\Desktop\LSL\Tapper\Data'
+    motion_small_screen = r'\Motion_1.csv'
+    motion_big_screen = r'\Motion_2.csv'
+    circles_small_screen = r'\Circles_1.csv'
+    circles_big_screen = r'\Circles_2.csv'
 
-    subj1 = r'\Const_Vel_0'
-    subj2 = r'\yoav_120sec_round_0'
+    subj = r'\s05_nt_0'
 
-    M1 = r'\Motion_1'
-    M2 = r'\Motion_2'
-    C1 = r'\Circles_1'
-    C2 = r'\Circles_2'
+    two_sec_circles = base + r'\yoav_120sec_round_0\Circles_1.csv'
+    f1 = base + subj + circles_small_screen
+    f2 = base + subj + circles_big_screen
 
-    one_sec_circles = base + subj2 + C1 + r".csv"
-    f1 = base + subj1 + "\Motion_line_1" + r".csv"
-    f2 = base + subj1 + "\Motion_slow_fast_3" + r".csv"
-    f3 = base + subj1 + "\Motion_small_circles_2" + r".csv"
+    files = [f1,f2]
 
-    files = [one_sec_circles]
-
-    analyze_velocity_peaks(files, False)
+    analyze_velocity_peaks(files, animate=False)
 
 
 
