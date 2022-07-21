@@ -26,7 +26,7 @@ FULL_WINDOW = False
 ######################## END developing section #############################
 
 # Determines how many different touch detections can be realized by the MaxPatches machine as different channels
-CHANNELS = 2
+CHANNELS = 1
 # Scale of the time series
 TIME_SERIES_DT = 0.01
 
@@ -148,12 +148,13 @@ class TouchChannel:
         self.group.remove(groupy)
 
     def next_mode(self):
-        """When a very short single touch occurs (less then MIN_TOUCH_TIME)"""
+        """When a very short double-touch occurs"""
         self.mode += 1
 
     def prev_mode(self):
-        """When a very short double-touch occurs"""
-        self.mode = max(self.mode - 1, 0)
+        """When a very short triple-touch occurs"""
+        # -2, because triple-touch is a specific case of a double-touch
+        self.mode = max(self.mode - 2, 0)
 
     def move(self):
         """When a moving, and only moving, occurs"""
@@ -238,7 +239,7 @@ class TouchChannel:
         return self.start_pos + position + velocity + touch_time + mode + area
 
     def __repr__(self):
-        return "Id :{}, Active?: {},Position: {}".format(self.id, self.switch, [self.main_touch.sx, self.main_touch.sy])
+        return "Id :{}, device:{}, Active?: {},Position: {}".format(self.main_touch.id, self.main_touch.device, self.switch, [self.main_touch.sx, self.main_touch.sy])
 
 
 class UDPclient:
@@ -354,6 +355,8 @@ class TouchInput(Widget):
                 if not ch.isActive():
                     if touch.is_double_tap:
                         ch.next_mode()
+                    elif touch.is_triple_tap:
+                        ch.prev_mode()
                     else:
                         ch.activate(touch)
                     return
@@ -388,8 +391,6 @@ class TouchInput(Widget):
                     self.waiting_ch.deactivate()
                 # else => deactivate
                 else:
-                    if ch.touch_time < self.touch_time_threshold:
-                        ch.prev_mode()
                     ch.deactivate()
                 break
             # Case: the touch up related to one of the channel's groupies (in this case
@@ -419,6 +420,8 @@ if __name__ == "__main__":
         Window.fullscreen = True
         Window.borderless = True
         Window.maximize()
+
+
 
     # App closes ONLY if <escape> is pressed
     Window.exit_on_escape = True
